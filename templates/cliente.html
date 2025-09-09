@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #fff;
+    }
+
+    /* Contenedor general */
+    .form-wrapper {
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        margin: 20px auto;
+        width: 90%;
+        position: relative;
+    }
+
+    /* Botón regresar arriba a la izquierda */
+    .top-left-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+    }
+
+    /* Botones de guardar y eliminar arriba a la derecha */
+    .top-right-buttons {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Layout del formulario */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-top: 70px; /* espacio para los botones superiores */
+        align-items: start;
+    }
+
+    /* Área de observaciones */
+    .observaciones-box {
+        grid-column: 4 / 5;   /* siempre en la 4ta columna */
+        grid-row: 1 / span 4; /* ocupa desde la fila 1 y se expande hacia abajo */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .historial-box {
+        grid-column: 4 / 5;
+        background-color: #ebebeb;
+        border-radius: 8px;
+        min-height: 160px;   /* altura mínima */
+        max-height: 150px;   /* 👈 altura máxima fija */
+        overflow-y: auto;    /* 👈 activa la barra vertical */
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+
+    .mb-2, .mb-3 {
+        display: flex;
+        flex-direction: column;
+    }
+
+    label {
+        font-weight: normal;
+        margin-bottom: 4px;
+    }
+
+    input, select, textarea {
+        border: 1px solid #00a34a;
+        border-radius: 8px;
+        padding: 6px 10px;
+    }
+
+    textarea {
+        height: 100px;
+    }
+
+    .btn {
+        border-radius: 12px;
+        padding: 6px 16px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .navbar-button {
+        margin-top: 10px;
+        background-color: #00a34a;
+        margin-left: 120px;
+        color: #ffffff;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background-color: #5f75ff;
+        color: white;
+        border: none;
+    }
+
+    .btn-danger {
+        background-color: #f44336;
+        color: white;
+        border: none;
+    }
+
+    .btn-success {
+        background-color: #00a34a;
+        color: white;
+        border: none;
+        margin-top: 10px;
+    }
+
+    .navigation-buttons {
+        margin-top: 20px;
+    }
+
+    .navigation-buttons .btn {
+        margin-right: 10px;
+        background-color: #00a34a;
+        color: white;
+        border: none;
+    }
+
+    @media (max-width: 1024px) {
+        .form-grid {
+            grid-template-columns: repeat(1, 1fr);
+        }
+
+        .observaciones-box {
+            grid-column: span 2;
+        }
+
+        .historial-box {
+            grid-column: span 2;
+        }
+
+        .top-left-button,
+        .top-right-buttons {
+            position: static;
+            margin-bottom: 10px;
+        }
+    }
+</style>
+
+<a href="{{ url_for('index') }}" class="navbar-button">Regresar</a>
+
+<div class="form-wrapper">
+
+
+    <!-- Botones Guardar y Eliminar -->
+    <div class="top-right-buttons">
+        <button type="submit" form="clienteForm" class="btn btn-primary">Guardar datos</button>
+        <form method="post" action="/cliente/{{ cliente.id }}/delete">
+            <button type="submit" class="btn btn-danger">Eliminar cliente</button>
+        </form>
+    </div>
+
+    <h2>{{ cliente.razon_social }}</h2>
+    <p>Cliente cargado: {{ cliente.nit_cliente }}</p>
+
+    <form id="clienteForm" method="post" action="/cliente/{{ cliente.id }}/update">
+        <div class="form-grid">
+
+            <!-- Columna 1 -->
+            <div class="mb-2">
+                <label>Razón social:</label>
+                <input type="text" name="razon_social" value="{{ cliente.razon_social }}" readonly>
+            </div>
+            <div class="mb-2">
+                <label>NIT cliente:</label>
+                <input type="text" name="nit_cliente" value="{{ cliente.nit_cliente }}" readonly>
+            </div>
+            <div class="mb-2">
+                <label>Nro. docto. cruce:</label>
+                <input type="text" name="nro_docto_cruce" value="{{ cliente.nro_docto_cruce }}" readonly>
+            </div>
+            <div class="mb-2">
+                <label>Fecha docto:</label>
+                 <input type="date" name="fecha_docto" value="{{ cliente.fecha_docto.strftime('%Y-%m-%d') if cliente.fecha_docto else '' }}" readonly>
+            </div>
+           
+
+            <div class="mb-2">
+                <label>Días vencidos:</label>
+                <input type="number" name="dias_vencidos" value="{{ cliente.dias_vencidos }}" readonly>
+            </div>
+
+            <!-- Columna 2 -->
+            <div class="mb-2">
+                <label>Total COP:</label>
+                <input type="text" name="total_cop" value="{{ '{:,}'.format(cliente.total_cop|int) if cliente.total_cop else '' }}" readonly>
+
+
+            </div>
+            <div class="mb-2">
+                <label>Teléfono:</label>
+                <input type="text" name="telefono" value="{{ cliente.telefono }}">
+            </div>
+            <div class="mb-2">
+                <label>Fecha vcto:</label>
+                <input type="date" name="fecha_vcto" value="{{ cliente.fecha_vcto }}" readonly>
+            </div>
+            <div class="mb-2">
+                <label>Recaudo:</label>
+                <input type="number" step="0.01" name="recaudo" value="{{ cliente.recaudo }}">
+            </div>
+            <div class="mb-2">
+                <label>Fecha gestión:</label>
+                <input type="date" name="fecha_gestion" value="{{ cliente.fecha_gestion.strftime('%Y-%m-%d') if cliente.fecha_gestion else '' }}" >
+            </div>
+
+            <!-- Columna 3 -->
+            <div class="mb-2">
+                <label>Celular:</label>
+                <input type="text" name="celular" value="{{ cliente.celular }}">
+            </div>
+            <div class="mb-2">
+                <label>Asesor:</label>
+                <input type="text" name="asesor" value="{{ cliente.asesor }}">
+            </div>
+            <div class="mb-2">
+                <label>Tipo:</label>
+                <select name="tipo">
+                    <option value="No contesta" {% if cliente.tipo == "No contesta" %}selected{% endif %}>No contesta</option>
+                    <option value="Ya pagó" {% if cliente.tipo == "Ya pagó" %}selected{% endif %}>Ya pagó</option>
+                    <option value="Acuerdo de pago" {% if cliente.tipo == "Acuerdo de pago" %}selected{% endif %}>Acuerdo de pago</option>
+                    <option value="Novedad" {% if cliente.tipo == "Novedad" %}selected{% endif %}>Novedad</option>
+                    <option value="Se dejo msj con tercero" {% if cliente.tipo == "Se dejo msj con tercero" %}selected{% endif %}>Se dejó msj con tercero</option>
+                    <option value="Se dejo mensaje con titular" {% if cliente.tipo == "Se dejo mensaje con titular" %}selected{% endif %}>Se dejó mensaje con titular</option>
+                    <option value="Abono" {% if cliente.tipo == "Abono" %}selected{% endif %}>Abono</option>
+                    <option value="Contacto por whatsapp" {% if cliente.tipo == "Contacto por whatsapp" %}selected{% endif %}>Contacto por whatsapp</option>
+                </select>
+            </div>
+
+
+         <div class="mb-3 observaciones-box">
+            <label>Nueva observación:</label>
+            <textarea name="observaciones" placeholder="Escribe una nueva observación aquí..."></textarea>
+            <button type="button" id="btnHistorial" class="btn btn-success">Ver historial</button>
+            <div id="historialBox" class="historial-box" style="display:none;">
+                <p><em>Haz clic en "ver historial" para cargar datos...</em></p>
+            </div>
+        </div>
+
+
+        </div> <!-- Fin form-grid -->
+    </form>
+
+    <!-- Navegación entre clientes -->
+    <div class="navigation-buttons">
+        {% if prev_id %}
+            <a href="/cliente/{{ prev_id }}" class="btn">regresar</a>
+        {% endif %}
+        {% if next_id %}
+            <a href="/cliente/{{ next_id }}" class="btn">siguiente</a>
+        {% endif %}
+    </div>
+
+</div> <!-- Fin form-wrapper -->
+
+<!-- Script de historial -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const btnHistorial = document.getElementById("btnHistorial");
+    const box = document.getElementById("historialBox");
+
+    if (btnHistorial) {
+        btnHistorial.addEventListener("click", function () {
+            fetch("/cliente/{{ cliente.id }}/historial")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Error en la respuesta del servidor");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    box.style.display = "block";
+                    if (data.length > 0) {
+                        box.innerHTML = "<ul>" + data.map(item => 
+                            `<li>${item.fecha ?? ''} : ${item.texto}</li>`
+                        ).join("") + "</ul>";
+                    } else {
+                        box.innerHTML = "<p><em>No hay historial disponible</em></p>";
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    box.style.display = "block";
+                    box.innerHTML = "<p style='color:red'>Error al cargar historial</p>";
+                });
+        });
+    }
+});
+</script>
+
+
+{% endblock %}
