@@ -52,6 +52,7 @@
         flex-direction: column;
     }
 
+
     .historial-box {
         grid-column: 4 / 5;
         background-color: #ebebeb;
@@ -68,6 +69,7 @@
         display: flex;
         flex-direction: column;
     }
+
 
     label {
         font-weight: normal;
@@ -199,12 +201,11 @@
             </div>
 
             <!-- Columna 2 -->
-            <div class="mb-2">
-                <label>Total COP:</label>
-                <input type="text" name="total_cop" value="{{ '{:,}'.format(cliente.total_cop|int) if cliente.total_cop else '' }}" readonly>
-
-
+              <div class="mb-2">
+                <label>Valor docto:</label>
+                <input type="text" name="valor_docto" value="{{ '{:,}'.format(cliente.valor_docto|int) if cliente.valor_docto else '' }}" readonly>
             </div>
+          
             <div class="mb-2">
                 <label>Teléfono:</label>
                 <input type="text" name="telefono" value="{{ cliente.telefono }}">
@@ -213,9 +214,9 @@
                 <label>Fecha vcto:</label>
                 <input type="date" name="fecha_vcto" value="{{ cliente.fecha_vcto }}" readonly>
             </div>
-            <div class="mb-2">
-                <label>Recaudo:</label>
-                <input type="number" step="0.01" name="recaudo" value="{{ cliente.recaudo }}">
+             <div class="mb-2">
+                <label>Total COP:</label>
+                <input type="text" name="total_cop" value="{{ '{:,}'.format(cliente.total_cop|int) if cliente.total_cop else '' }}" readonly>
             </div>
             <div class="mb-2">
                 <label>Fecha gestión:</label>
@@ -227,10 +228,11 @@
                 <label>Celular:</label>
                 <input type="text" name="celular" value="{{ cliente.celular }}">
             </div>
-            <div class="mb-2">
-                <label>Asesor:</label>
-                <input type="text" name="asesor" value="{{ cliente.asesor }}">
+              <div class="mb-2">
+                <label>Recaudo:</label>
+                <input type="number" step="0.01" name="recaudo" value="{{ '{:,}'.format(cliente.recaudo|int) if cliente.recaudo else '' }}">
             </div>
+           
             <div class="mb-2">
                 <label>Tipo:</label>
                 <select name="tipo">
@@ -243,6 +245,10 @@
                     <option value="Abono" {% if cliente.tipo == "Abono" %}selected{% endif %}>Abono</option>
                     <option value="Contacto por whatsapp" {% if cliente.tipo == "Contacto por whatsapp" %}selected{% endif %}>Contacto por whatsapp</option>
                 </select>
+            </div>
+           <div class="mb-2">
+                <label>Asesor:</label>
+                <input type="text" name="asesor" value="{{ cliente.asesor }}">
             </div>
 
 

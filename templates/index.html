@@ -1,365 +1,330 @@
 <!doctype html>
 <html lang="es">
-
 <head>
-  <meta charset="utf-8">
-  <title>Cartera</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    :root {
-      --bg: #ffffff;
-      --fg: #0f172a;
-      --muted: #64748b;
-      --border: #e5e7eb;
-      --card: #c70000;
-      --accent: #0ea5e9;
-      --row: #f8fafc
-    }
+    <meta charset="utf-8">
+    <title>Cartera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #0f172a;
+            --muted: #64748b;
+            --border: #e5e7eb;
+            --card: #ffffff;
+            --accent: #0ea5e9;
+            --row: #f8fafc
+        }
 
-    html,
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial
-    }
+        html, body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+        }
 
-    .wrap {
-      max-width: 1300px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
+        .wrap {
+            max-width: 1300px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
 
-    h1 {
-      margin: 0 0 12px;
-      font-size: 1.6rem
-    }
+        h1 {
+            margin: 0 0 12px;
+            font-size: 1.6rem
+        }
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px
-    }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px
+        }
 
-    .row {
-    
-   
-      flex-wrap: wrap
-    }
+        label {
+            display: block;
+            font-size: .85rem;
+            color: var(--muted);
+            margin-bottom: 4px
+        }
 
-    label {
-      display: block;
-      font-size: .85rem;
-      color: var(--muted);
-      margin-bottom: 4px
-    }
-    input[type="file"]{
-      width: 400px;
-      text-align: center;
+        input[type="file"] {
+            width: 400px;
+            text-align: center;
+        }
 
-    }
-    input[type="file"],
-    input[type="number"],
-    select {
-      
-      margin-right: 10px;
-      padding: 9px 10px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: #ffffff;
-      color: var(--fg)
-    }
+        input[type="file"], input[type="number"], select {
+            margin-right: 10px;
+            padding: 9px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #ffffff;
+            color: var(--fg);
+        }
 
-    .btn1 {
-        margin-top: 10px;
-        background-color: #00a34a;
-        color: #ffffff;
-        border: none;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-weight: bold;
-        cursor: pointer;
-        text-decoration: none;
-    }
-    .btn {
-      display: inline-block;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: #00a34a;
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: 60px;
-      text-align: center;
-      cursor: pointer
-    }
+        .btn1 {
+            margin-top: 10px;
+            background-color: #00a34a;
+            color: #ffffff;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+        }
 
-    .btn:hover {
-      background: #0066eb
-    }
+        .btn {
+            display: inline-block;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #00a34a;
+            color: #ffffff;
+            text-decoration: none;
+            cursor: pointer
+        }
 
-    table {
-      width: 100%;
-      border-collapse: collapse
-    }
+        .btn:hover {
+            background: #0066eb
+        }
 
-    th,
-    td {
-      padding: 10px 8px;
-      border-bottom: 1px solid var(--border);
-      font-size: .95rem
-    }
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
 
-    th {
-      color: var(--muted);
-      text-align: left
-    }
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border);
+            font-size: .95rem
+        }
 
-    tr:nth-child(even) td {
-      background: var(--row)
-    }
+        th {
+            color: var(--muted);
+            text-align: left
+        }
 
-    .right {
-      text-align: right
-    }
+        tr:nth-child(even) td {
+            background: var(--row)
+        }
 
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
-    }
+        .right {
+            text-align: center
+        }
 
-    /* acordeón */
-    details {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 10px;
-      overflow: hidden
-    }
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace
+        }
 
-    summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 12px;
-      background: #f8fafc;
-      display: grid;
-      grid-template-columns: 1fr 170px 110px;
-      gap: 12px;
-      align-items: center
-    }
+        /* acordeón */
+        details {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            overflow: hidden
+        }
 
-    summary::-webkit-details-marker {
-      display: none
-    }
+        summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px;
+            background: #f8fafc;
+            display: grid;
+            grid-template-columns: 1fr 170px 110px;
+            gap: 12px;
+            align-items: center
+        }
 
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: #00a34a;
-      font-size: .8rem
-    }
+        summary::-webkit-details-marker {
+            display: none
+        }
 
-    .muted {
-      color: var(--muted)
-    }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #00a34a;
+            font-size: .8rem
+        }
 
-    .link {
-      color: var(--accent);
-      text-decoration: none
-    }
+        .muted {
+            color: var(--muted)
+        }
 
-    .link:hover {
-      text-decoration: underline
-    }
+        .link {
+            color: var(--accent);
+            text-decoration: none;
+             display: inline-block;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #00a34a;
+            color: #ffffff;
+            text-decoration: none;
+            cursor: pointer
+        }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px
-    }
-  </style>
+        .link:hover {
+            text-decoration: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px
+        }
+    </style>
 </head>
-{% extends "base.html" %}
-{% block content %}
-
 <body>
-  <form method="get" action="/buscar" style="margin-bottom: 20px; display:flex; margin-left: 50px; width: 500PX; gap:10px;">
-    <input type="text" name="q" placeholder="Buscar cliente por ID o nombre..." 
-           style="flex:1; padding:6px; border:1px solid #00a34a; border-radius:8px;">
-    <button type="submit" class="btn btn-success">Buscar</button>
-</form>
+    <div class="wrap">
+        <h1>Cartera</h1>
 
-  <div class="wrap">
-    <h1>Cartera</h1>
+        <div class="card">
+            <form action="/importar_excel" method="post" enctype="multipart/form-data">
+                <div class="grid">
+                    <div>
+                        <label>Archivo Cartera (.xlsx/.xls/.csv)</label>
+                        <input type="file" name="file" accept=".xlsx,.xls,.csv" required>
+                    </div>
+                    <div>
+                        <label>&nbsp;</label>
+                        <button class="btn1" type="submit">Importar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
 
-    <!-- FORM 1: IMPORTAR ARCHIVOS (dos inputs excelFiles) -->
-    <div class="card">
-      <form action="/importar_excels" method="post" enctype="multipart/form-data">
-        <div class="grid">
-          <div>
-            <label>Archivo Cartera (.xlsx/.xls/.csv)</label>
-            <input type="file" name="excelFiles" accept=".xlsx,.xls,.csv" required>
-          </div>
-          <br>
-          <div>
-            <label>Archivo Recaudos (.xlsx/.xls/.csv)</label>
-            <input type="file" name="excelFiles" accept=".xlsx,.xls,.csv" required>
-          </div>
-          <div>
-            
-      
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button class="btn1" type="submit">Importar</button>
-          </div>
+        <div class="card">
+            <form method="get" action="/">
+                <div class="grid">
+                    <div>
+                        <label for="view">Vista</label>
+                        <select id="view" name="view">
+                            <option value="flat" {{ 'selected' if view=='flat' else '' }}>Lista plana</option>
+                            <option value="group" {{ 'selected' if view=='group' else '' }}>Agrupado (acordeón)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="min_dias">Mín. días vencidos</label>
+                        <input id="min_dias" name="min_dias" type="number" min="0" value="{{ min_dias or '' }}">
+                    </div>
+                    <div>
+                        <label for="sort">Orden</label>
+                        <select id="sort" name="sort">
+                            <option value="dias_desc" {{ 'selected' if sort=='dias_desc' else '' }}>Días vencidos (desc)</option>
+                            <option value="dias_asc" {{ 'selected' if sort=='dias_asc' else '' }}>Días vencidos (asc)</option>
+                            <option value="razon_asc" {{ 'selected' if sort=='razon_asc' else '' }}>Razón social (A-Z)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="max_dias">Máx. días vencidos</label>
+                        <input id="max_dias" name="max_dias" type="number" min="0" value="{{ max_dias or '' }}">
+                    </div>
+                </div>
+                <div class="row" style="margin-top:12px">
+                    <button class="btn" type="submit">Aplicar</button>
+                    <a class="btn" href="/exportar_cartera.xlsx">Exportar Excel</a>
+                </div>
+            </form>
         </div>
-      </form>
-    </div>
 
-    <!-- FORM 2: FILTROS (GET) -->
-    <div class="card">
-      <form method="get" action="/">
-        <div class="grid">
-          <div>
-            <label for="view">Vista</label>
-            <select id="view" name="view">
-              <option value="flat" {{ 'selected' if view=='flat' else '' }}>Lista plana</option>
-              <option value="group" {{ 'selected' if view=='group' else '' }}>Agrupado (acordeón)</option>
-            </select>
-          </div>
-             <div>
-            <label for="min_dias">Mín. días vencidos</label>
-            <input id="min_dias" name="min_dias" type="number" min="0" value="{{ min_dias or '' }}">
-          </div>
-          <div>
-            <label for="sort">Orden</label>
-            <select id="sort" name="sort">
-              <option value="dias_desc" {{ 'selected' if sort=='dias_desc' else '' }}>Días vencidos (desc)</option>
-              <option value="dias_asc" {{ 'selected' if sort=='dias_asc' else '' }}>Días vencidos (asc)</option>
-              <option value="razon_asc" {{ 'selected' if sort=='razon_asc' else '' }}>Razón social (A-Z)</option>
-            </select>
-          </div>
-       
-          <div>
-            <label for="max_dias">Máx. días vencidos</label>
-            <input id="max_dias" name="max_dias" type="number" min="0" value="{{ max_dias or '' }}">
-          </div>
-          
+        {% if view == 'flat' %}
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Razón social</th>
+                        <th>NIT</th>
+                        <th>Factura</th>
+                        <th class="right">Días vencidos</th>
+                        <th>Fecha docto</th>
+                        <th>Fecha vcto</th>
+                        <th class="right">Valor docto.</th>
+                        <th class="right">Saldo (COP)</th>
+                        <th class="right">Recaudo</th>
+                        
+                        <th>Asesor</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td>{{ f.razon_social or '-' }}</td>
+                        <td>{{ f.nit_cliente or '-' }}</td>
+                        <td class="mono">{{ f.nro_docto_cruce or '-' }}</td>
+                        <td class="right">{{ f.dias_vencidos if f.dias_vencidos is not none else '-' }}</td>
+                        <td>{{ f.fecha_docto or '-' }}</td>
+                        <td>{{ f.fecha_vcto or '-' }}</td>
+                        <td class="right mono">{{ f.valor_docto | fmt_money }}</td>
+                        <td class="right mono">{{ f.total_cop | fmt_money }}</td>
+                        <td class="right mono">{{ f.recaudo | }}</td>
+                        <td>{{ f.asesor or '-' }}</td>
+                        <td class="right"><a class="link" href="/cliente/{{ f.id }}">ver</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="muted">Sin registros.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <div class="row" style="margin-top:12px">
-          <button class="btn" type="submit">Aplicar</button>
-          <a class="btn" href="/exportar_cartera.xlsx">Exportar Excel</a>
+        {% else %}
+        {% if not clientes %}
+        <div class="card">
+            <p class="muted">Sin clientes para los filtros.</p>
         </div>
-      </form>
-    </div>
-
-    <!-- CONTENIDO: vista plano o agrupado -->
-    {% if view == 'flat' %}
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Razón social</th>
-            <th>NIT</th>
-            <th>Factura</th>
-            <th class="right">Días vencidos</th>
-            <th>Fecha docto</th>
-            <th>Fecha vcto</th>
-            <th class="right">Total (COP)</th>
-            <th class="right">Recaudo</th>
-            <th>Fecha recaudo</th>
-            <th>Asesor</th>
-            <th class="right">Otras facturas</th>
-            <th class="right">Máx. días cliente</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for f in filas %}
-          {% set extra = extras_por_fila.get(f.id, {}) %}
-          <tr>
-            <td>{{ f.razon_social or '-' }}</td>
-            <td>{{ f.nit_cliente or '-' }}</td>
-            <td class="mono">{{ f.nro_docto_cruce or '-' }}</td>
-            <td class="right">{{ f.dias_vencidos if f.dias_vencidos is not none else '-' }}</td>
-            <td>{{ f.fecha_docto or '-' }}</td>
-            <td>{{ f.fecha_vcto or '-' }}</td>
-            <td class="right mono">{{ f.total_cop | fmt_money }}</td>
-            <td class="right mono">{{ f.recaudo | fmt_money }}</td>
-            <td>{{ f.fecha_recaudo or '-' }}</td>
-            <td>{{ f.asesor or '-' }}</td>
-            <td class="right">{% if extra.get('otras_facturas', 0) > 0 %}{{ extra['otras_facturas'] }}{% else %}-{%
-              endif %}</td>
-            <td class="right">{% if extra.get('max_dias_cliente') is not none %}{{ extra['max_dias_cliente'] }}{% else
-              %}-{% endif %}</td>
-            <td class="right"><a class="link" href="/cliente/{{ f.id }}">ver</a></td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="13" class="muted">Sin registros.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    {% if not clientes %}
-    <div class="card">
-      <p class="muted">Sin clientes para los filtros.</p>
-    </div>
-    {% else %}
-    <div>
-      {% for cl in clientes %}
-      <details>
-        <summary>
-          <div>
-            <strong>{{ cl.razon_social or 'Sin razón social' }}</strong>
-            <span class="muted"> · NIT: {{ cl.nit_cliente or 's/n' }}</span>
-          </div>
-          <div class="muted">Facturas: {{ cl.facturas|length }}</div>
-          <div><span class="badge">Máx. días: {{ cl.max_dias }}</span></div>
-        </summary>
-        <div style="padding:12px"> 
-          <table>
-            <thead>
-              <tr>
-                <th>Factura</th>
-                <th class="right">Días vencidos</th>
-                <th>Fecha docto</th>
-                <th>Fecha vcto</th>
-                <th class="right">Total (COP)</th>
-                <th class="right">Recaudo</th>
-                <th>Fecha recaudo</th>
-                <th>Asesor</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for f in cl.facturas %}
-              <tr>
-                <td class="mono">{{ f.nro_docto_cruce }}</td>
-                <td class="right">{{ f.dias_vencidos if f.dias_vencidos is not none else '-' }}</td>
-                <td>{{ f.fecha_docto or '-' }}</td>
-                <td>{{ f.fecha_vcto or '-' }}</td>
-                <td class="right mono">{{ f.total_cop | fmt_money }}</td>
-                <td class="right mono">{{ f.recaudo | fmt_money }}</td>
-                <td>{{ f.fecha_recaudo or '-' }}</td>
-                <td>{{ f.asesor or '-' }}</td>
-                <td class="right"><a class="link" href="/cliente/{{ f.id }}">ver</a></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        {% else %}
+        <div>
+            {% for cl in clientes %}
+            <details>
+                <summary>
+                    <div>
+                        <strong>{{ cl.razon_social or 'Sin razón social' }}</strong>
+                        <span class="muted"> · NIT: {{ cl.nit_cliente or 's/n' }}</span>
+                    </div>
+                    <div class="muted">Facturas: {{ cl.facturas|length }}</div>
+                    <div><span class="badge">Máx. días: {{ cl.max_dias }}</span></div>
+                </summary>
+                <div style="padding:12px">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Factura</th>
+                                <th class="right">Días vencidos</th>
+                                <th>Fecha docto</th>
+                                <th>Fecha vcto</th>
+                                <th class="right">Valor docto</th>
+                                <th class="right">Saldo (COP)</th>
+                                <th class="right">Recaudo</th>
+                                <th>Asesor</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in cl.facturas %}
+                            <tr>
+                                <td class="mono">{{ f.nro_docto_cruce }}</td>
+                                <td class="right">{{ f.dias_vencidos if f.dias_vencidos is not none else '-' }}</td>
+                                <td>{{ f.fecha_docto or '-' }}</td>
+                                <td>{{ f.fecha_vcto or '-' }}</td>
+                                <td class="right mono">{{ f.valor_docto | fmt_money }}</td>
+                                <td class="right mono">{{ f.total_cop | fmt_money }}</td>
+                                <td class="right mono">{{ f.recaudo | fmt_money }}</td>
+                                <td>{{ f.asesor or '-' }}</td>
+                                <td class="right"><a class="link" href="/cliente/{{ f.id }}">ver</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            {% endfor %}
         </div>
-      </details>
-      {% endfor %}
+        {% endif %}
+        {% endif %}
     </div>
-    {% endif %}
-    {% endif %}
-  </div>
 </body>
-{% endblock %}
-
 </html>
