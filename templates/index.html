@@ -259,7 +259,7 @@
                         <td>{{ f.fecha_vcto or '-' }}</td>
                         <td class="right mono">{{ f.valor_docto | fmt_money }}</td>
                         <td class="right mono">{{ f.total_cop | fmt_money }}</td>
-                        <td class="right mono">{{ f.recaudo | }}</td>
+                        <td class="right mono">{{ f.recaudo | fmt_money }}</td>
                         <td>{{ f.asesor or '-' }}</td>
                         <td class="right"><a class="link" href="/cliente/{{ f.id }}">ver</a></td>
                     </tr>
@@ -326,5 +326,17 @@
         {% endif %}
         {% endif %}
     </div>
+    {% if request.query_params.get("msg") %}
+        <script>
+            const msg = "{{ request.query_params.get('msg') }}";
+            if (msg === "ok") {
+                alert("✅ Importación realizada con éxito");
+            } else if (msg === "error_vacio") {
+                alert("⚠️ El archivo Excel está vacío");
+            } else if (msg.startsWith("error")) {
+                alert("❌ Error en la importación: " + msg);
+            }
+        </script>
+    {% endif %}
 </body>
 </html>
