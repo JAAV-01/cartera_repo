@@ -180,6 +180,7 @@
     <div class="wrap">
         <h1>Cartera</h1>
 
+        <!-- Importación -->
         <div class="card">
             <form action="/importar_excel" method="post" enctype="multipart/form-data">
                 <div class="grid">
@@ -195,6 +196,7 @@
             </form>
         </div>
 
+        <!-- Filtros -->
         <div class="card">
             <form method="get" action="/">
                 <div class="grid">
@@ -229,6 +231,7 @@
             </form>
         </div>
 
+        <!-- Vista plana -->
         {% if view == 'flat' %}
         <div class="card">
             <table>
@@ -240,10 +243,9 @@
                         <th class="right">Días vencidos</th>
                         <th>Fecha docto</th>
                         <th>Fecha vcto</th>
-                        <th class="right">Valor docto.</th>
-                        <th class="right">Saldo (COP)</th>
+                        <th class="right">Valor docto</th>
+                        <th class="right">Total (COP)</th>
                         <th class="right">Recaudo</th>
-                        
                         <th>Asesor</th>
                         <th></th>
                     </tr>
@@ -272,6 +274,7 @@
             </table>
         </div>
         {% else %}
+        <!-- Vista agrupada -->
         {% if not clientes %}
         <div class="card">
             <p class="muted">Sin clientes para los filtros.</p>
@@ -286,7 +289,7 @@
                         <span class="muted"> · NIT: {{ cl.nit_cliente or 's/n' }}</span>
                     </div>
                     <div class="muted">Facturas: {{ cl.facturas|length }}</div>
-                    <div><span class="badge">Máx. días: {{ cl.max_dias }}</span></div>
+                    <div><span class="badge">Máx. días: {{ cl.max_dias or '-' }}</span></div>
                 </summary>
                 <div style="padding:12px">
                     <table>
@@ -297,7 +300,7 @@
                                 <th>Fecha docto</th>
                                 <th>Fecha vcto</th>
                                 <th class="right">Valor docto</th>
-                                <th class="right">Saldo (COP)</th>
+                                <th class="right">Total (COP)</th>
                                 <th class="right">Recaudo</th>
                                 <th>Asesor</th>
                                 <th></th>
@@ -326,6 +329,8 @@
         {% endif %}
         {% endif %}
     </div>
+
+    <!-- Alertas -->
     {% if request.query_params.get("msg") %}
         <script>
             const msg = "{{ request.query_params.get('msg') }}";
@@ -340,3 +345,5 @@
     {% endif %}
 </body>
 </html>
+
+

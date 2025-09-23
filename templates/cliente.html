@@ -157,7 +157,8 @@
     }
 </style>
 
-<a href="{{ url_for('index') }}" class="navbar-button">Regresar</a>
+<a href="/" class="navbar-button">Regresar</a>
+
 
 <div class="form-wrapper">
 
@@ -216,7 +217,8 @@
             </div>
              <div class="mb-2">
                 <label>Total COP:</label>
-                <input type="text" name="total_cop" value="{{ '{:,}'.format(cliente.total_cop|int) if cliente.total_cop else '' }}" readonly>
+                <input type="text" name="total_cop"
+           value="{{ '{:,.0f}'.format(cliente.total_cop|float) if cliente.total_cop else '' }}">
             </div>
             <div class="mb-2">
                 <label>Fecha gestión:</label>
@@ -228,12 +230,14 @@
                 <label>Celular:</label>
                 <input type="text" name="celular" value="{{ cliente.celular }}">
             </div>
-              <div class="mb-2">
+            <div class="mb-2">
                 <label>Recaudo:</label>
-                <input type="number" step="0.01" name="recaudo" value="{{ '{:,}'.format(cliente.recaudo|int) if cliente.recaudo else '' }}">
+                <input type="text" name="recaudo" value="{{ '{:,.0f}'.format(cliente.recaudo|float) if cliente.recaudo else '' }}">
             </div>
+
            
             <div class="mb-2">
+
                 <label>Tipo:</label>
                 <select name="tipo">
                     <option value="No contesta" {% if cliente.tipo == "No contesta" %}selected{% endif %}>No contesta</option>
@@ -311,6 +315,4 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 });
 </script>
-
-
 {% endblock %}

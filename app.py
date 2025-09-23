@@ -1,19 +1,21 @@
+from http.client import HTTPException
 import io
 import re
+import models
 from typing import Optional
-from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Query, status
+from fastapi import FastAPI, Request, Depends
+from fastapi import UploadFile, File, Form, Query, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import tuple_
 from fastapi.staticfiles import StaticFiles
-import crud, database, models
+from sqlalchemy import tuple_
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base
 from decimal import Decimal
 from io import BytesIO
 import pandas as pd
-import unicodedata
 
+import crud
 
 # ------------------- Inicialización -------------------
 Base.metadata.create_all(bind=engine)
@@ -25,7 +27,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 # ------------------- Helpers -------------------
-
 def fmt_money(value):
     """Filtro para mostrar números como moneda"""
     if value is None or value == "":
@@ -51,13 +52,11 @@ def to_float(val):
     try:
         if pd.isna(val):
             return None
-        # Convertir a string y limpiar caracteres que no sean números, punto o coma
-        val_str = str(val).replace(",", ".")  
+        val_str = str(val).replace(",", ".")
         val_str = re.sub(r"[^0-9.]", "", val_str)
         return float(val_str) if val_str else None
     except (ValueError, TypeError):
         return None
-
 
 # ------------------- Importar cartera -------------------
 @app.post("/importar_excel")
@@ -66,38 +65,36 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
         contents = await file.read()
         df = pd.read_excel(BytesIO(contents))
 
-        # Renombrar columnas
         rename_map = {
             "Razón social": "razon_social",
             "Nit cliente despacho": "nit_cliente",
             "Nro. docto. cruce": "nro_docto_cruce",
             "Fecha docto.": "fecha_docto",
             "Dias vencidos": "dias_vencidos",
-            "Total COP": "total_cop",
             "Valor docto": "valor_docto",
+            "Total COP": "total_cop",
             "Fecha vcto.": "fecha_vcto",
-            "Razón social vend. cliente": "razon_social_vend_cliente",
             "Celular": "celular",
-            "Teléfono": "telefono"
+            "Teléfono": "telefono",
+            "Asesor": "asesor"
         }
         df.rename(columns=rename_map, inplace=True)
 
         if df.empty:
             return RedirectResponse(url="/", status_code=303)
 
-        # --- Crear set con claves del Excel ---
-        excel_claves = set()
-        for _, row in df.iterrows():
-            nit = row.get("nit_cliente")
-            docto = row.get("nro_docto_cruce")
-            if nit and docto:
-                excel_claves.add((str(nit), str(docto)))
+        # Claves en Excel
+        excel_claves = set(
+            (str(row["nit_cliente"]), str(row["nro_docto_cruce"]))
+            for _, row in df.iterrows()
+            if row.get("nit_cliente") and row.get("nro_docto_cruce")
+        )
 
-        # --- Crear set con claves de la BD ---
+        # Claves en BD
         bd_clientes = db.query(models.Cliente).all()
         bd_claves = set((c.nit_cliente, c.nro_docto_cruce) for c in bd_clientes)
 
-        # --- Eliminar registros que no estén en Excel ---
+        # Eliminar clientes que no están en Excel
         claves_a_eliminar = bd_claves - excel_claves
         if claves_a_eliminar:
             db.query(models.Cliente).filter(
@@ -107,32 +104,34 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                 ).in_(claves_a_eliminar)
             ).delete(synchronize_session=False)
 
-        # --- Insertar o actualizar ---
+        # Insertar o actualizar
         for _, row in df.iterrows():
-            nit = str(row.get("nit_cliente"))
-            docto = str(row.get("nro_docto_cruce"))
-            telefono_val = row.get("telefono")
-            celular_val = row.get("celular")
-
+            nit = str(row.get("nit_cliente")).strip() if row.get("nit_cliente") else None
+            docto = str(row.get("nro_docto_cruce")).strip() if row.get("nro_docto_cruce") else None
             if not nit or not docto:
                 continue
+
+            valor_docto = to_float(row.get("valor_docto")) or 0.0
+            total_excel = to_float(row.get("total_cop")) if row.get("total_cop") is not None else valor_docto
 
             cliente = db.query(models.Cliente).filter_by(
                 nit_cliente=nit,
                 nro_docto_cruce=docto
             ).first()
 
-            if cliente:  # actualizar
+            if cliente:
+                # Actualizar existente
                 cliente.razon_social = row.get("razon_social")
                 cliente.dias_vencidos = row.get("dias_vencidos")
                 cliente.fecha_docto = row.get("fecha_docto")
                 cliente.fecha_vcto = row.get("fecha_vcto")
-                cliente.valor_docto = to_float(row.get("valor_docto"))
-                cliente.total_cop = to_float(row.get("total_cop"))
-                cliente.telefono = str(telefono_val) if telefono_val is not None else None
-                cliente.celular = str(celular_val) if celular_val is not None else None
+                cliente.valor_docto = valor_docto
+                cliente.total_cop = total_excel
+                cliente.telefono = str(row.get("telefono")) if row.get("telefono") else None
+                cliente.celular = str(row.get("celular")) if row.get("celular") else None
                 cliente.asesor = row.get("asesor")
-            else:  # insertar nuevo
+            else:
+                # Insertar nuevo
                 nuevo = models.Cliente(
                     razon_social=row.get("razon_social"),
                     nit_cliente=nit,
@@ -140,10 +139,10 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                     dias_vencidos=row.get("dias_vencidos"),
                     fecha_docto=row.get("fecha_docto"),
                     fecha_vcto=row.get("fecha_vcto"),
-                    valor_docto=to_float(row.get("valor_docto")),
-                    total_cop=to_float(row.get("total_cop")),
-                    telefono=str(row.get("telefono")) if row.get("telefono") is not None else None,
-                    celular=str(row.get("celular")) if row.get("celular") is not None else None,
+                    valor_docto=valor_docto,
+                    total_cop=total_excel,
+                    telefono=str(row.get("telefono")) if row.get("telefono") else None,
+                    celular=str(row.get("celular")) if row.get("celular") else None,
                     asesor=row.get("asesor"),
                 )
                 db.add(nuevo)
@@ -155,92 +154,588 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
         print("❌ Error importar_excel:", e)
         return RedirectResponse(url="/", status_code=303)
 
-
-
 # ------------------- Observaciones -------------------
 @app.post("/cliente/{cliente_id}/observacion")
 def agregar_observacion(cliente_id: int, texto: str = Form(...), db: Session = Depends(get_db)):
     crud.add_observacion(db, cliente_id, texto)
     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=303)
 
-
-# ------------------- Actualizar cliente (abonos) -------------------
+# ------------------- Actualizar cliente (editar recaudo) -------------------
 @app.post("/cliente/{cliente_id}/update")
 async def update_cliente(
     request: Request,
     cliente_id: int,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(get_db)
 ):
     form_data = await request.form()
-    valor_abono = float(form_data.get("valor_abono", 0.0))
+    nuevo_recaudo = to_float(form_data.get("recaudo")) or 0.0
 
-    if valor_abono > 0:
-        crud.create_abono(db=db, cliente_id=cliente_id, valor=valor_abono)
+    cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+    if cliente:
+        cliente.recaudo = nuevo_recaudo
+        db.commit()
 
     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=status.HTTP_303_SEE_OTHER)
 
-# ------------------- Index -------------------
+# ------------------- Vista cliente -------------------
+@app.get("/cliente/{cliente_id}")
+def ver_cliente(cliente_id: int, request: Request, db: Session = Depends(get_db)):
+    cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    return templates.TemplateResponse("cliente.html", {"request": request, "cliente": cliente})
+
+# ------------------- Index agrupado -------------------
 @app.get("/")
-def index(request: Request,
-          view: str = Query("flat"),
-          min_dias: Optional[str] = Query(None),
-          max_dias: Optional[str] = Query(None),
-          sort: str = Query("dias_desc"),
-          db: Session = Depends(get_db)):
+def index(request: Request, db: Session = Depends(get_db)):
+    clientes = db.query(models.Cliente).all()
 
-    min_dias_val = int(min_dias) if min_dias and min_dias.strip() != "" else None
-    max_dias_val = int(max_dias) if max_dias and max_dias.strip() != "" else None
+    agrupados = {}
+    for c in clientes:
+        if c.nit_cliente not in agrupados:
+            agrupados[c.nit_cliente] = {
+                "nit_cliente": c.nit_cliente,
+                "razon_social": c.razon_social,
+                "telefono": c.telefono,
+                "celular": c.celular,
+                "asesor": c.asesor,
+                "facturas": []
+            }
 
-    filas = db.query(models.Cliente).all()
+        # si no tiene recaudo, lo calculamos
+        if c.recaudo is None:
+            c.recaudo = (c.total_cop or 0) - (c.valor_docto or 0)
 
-    if min_dias_val is not None:
-        filas = [f for f in filas if f.dias_vencidos is not None and f.dias_vencidos >= min_dias_val]
-    if max_dias_val is not None:
-        filas = [f for f in filas if f.dias_vencidos is not None and f.dias_vencidos <= max_dias_val]
+        agrupados[c.nit_cliente]["facturas"].append({
+            "id": c.id,
+            "nro_docto_cruce": c.nro_docto_cruce,
+            "dias_vencidos": c.dias_vencidos,
+            "fecha_docto": c.fecha_docto,
+            "fecha_vcto": c.fecha_vcto,
+            "valor_docto": c.valor_docto,
+            "recaudo": c.recaudo,
+            "total_cop": c.total_cop,
+            "fecha_gestion": c.fecha_gestion,
+            "tipo": c.tipo,
+            "observaciones": [obs.texto for obs in c.observaciones]
+        })
 
-    if sort == "dias_desc":
-        filas.sort(key=lambda x: x.dias_vencidos or 0, reverse=True)
-    elif sort == "dias_asc":
-        filas.sort(key=lambda x: x.dias_vencidos or 0)
-    elif sort == "razon_asc":
-        filas.sort(key=lambda x: x.razon_social or "")
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "clientes": list(agrupados.values())}
+    )
 
-    from collections import defaultdict
-    grupos = defaultdict(list)
-    for f in filas:
-        grupos[f.nit_cliente].append(f)
 
-    clientes = []
-    for nit, facturas in grupos.items():
-        cliente = {
-            "nit_cliente": nit,
-            "razon_social": facturas[0].razon_social if facturas else "Sin razón social",
-            "max_dias": max([f.dias_vencidos or 0 for f in facturas], default=0),
-            "facturas": [
-                {
-                    "id": f.id,
-                    "nro_docto_cruce": f.nro_docto_cruce,
-                    "dias_vencidos": f.dias_vencidos,
-                    "fecha_docto": f.fecha_docto,
-                    "fecha_vcto": f.fecha_vcto,
-                    "valor_docto": f.valor_docto,
-                    "total_cop": f.total_cop,
-                    "asesor": f.asesor,
-                }
-                for f in facturas
-            ]
-        }
-        clientes.append(cliente)
+# from http.client import HTTPException
+# import io
+# import re
+# import models
+# from typing import Optional
+# from fastapi import FastAPI, Request, Depends
+# from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Query, status
+# from fastapi.responses import HTMLResponse, RedirectResponse
+# from fastapi.templating import Jinja2Templates
+# from sqlalchemy import tuple_, func
+# from fastapi.staticfiles import StaticFiles
+# import crud, database, models
+# from sqlalchemy.orm import Session
+# from database import SessionLocal, engine, Base
+# from decimal import Decimal
+# from io import BytesIO
+# import pandas as pd
+# import unicodedata
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "filas": filas,
-        "clientes": clientes,
-        "view": view,
-        "min_dias": min_dias_val,
-        "max_dias": max_dias_val,
-        "sort": sort
-    })
+# # ------------------- Inicialización -------------------
+# Base.metadata.create_all(bind=engine)
+
+# app = FastAPI()
+# templates = Jinja2Templates(directory="templates")
+
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+# app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+
+
+
+
+# # ------------------- Helpers -------------------
+
+# def fmt_money(value):
+#     """Filtro para mostrar números como moneda"""
+#     if value is None or value == "":
+#         return "-"
+#     try:
+#         v = Decimal(str(value))
+#         return f"{v:,.2f}"
+#     except Exception:
+#         return str(value)
+
+# templates.env.filters["fmt_money"] = fmt_money
+
+
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+
+
+# def to_float(val):
+#     try:
+#         if pd.isna(val):
+#             return None
+#         val_str = str(val).replace(",", ".")
+#         val_str = re.sub(r"[^0-9.]", "", val_str)
+#         return float(val_str) if val_str else None
+#     except (ValueError, TypeError):
+#         return None
+
+
+# def sum_recaudo_db(db: Session, cliente_id: int) -> float:
+#     """Suma de abonos en BD para un cliente (0 si no hay abonos)."""
+#     s = db.query(func.coalesce(func.sum(models.Abono.valor), 0)).filter(models.Abono.cliente_id == cliente_id).scalar()
+#     return float(s or 0.0)
+
+
+
+# # ------------------- Importar cartera (sin columna 'recaudo', usamos abonos) ---
+# @app.post("/importar_excel")
+# async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+#     try:
+#         contents = await file.read()
+#         df = pd.read_excel(BytesIO(contents))
+
+#         rename_map = {
+#             "Razón social": "razon_social",
+#             "Nit cliente despacho": "nit_cliente",
+#             "Nro. docto. cruce": "nro_docto_cruce",
+#             "Fecha docto.": "fecha_docto",
+#             "Dias vencidos": "dias_vencidos",
+#             "Valor docto": "valor_docto",
+#             "Total COP": "total_cop",
+#             "Fecha vcto.": "fecha_vcto",
+#             "Celular": "celular",
+#             "Teléfono": "telefono",
+#             "Asesor": "asesor"
+#         }
+#         df.rename(columns=rename_map, inplace=True)
+
+#         if df.empty:
+#             return RedirectResponse(url="/", status_code=303)
+
+#         # Claves en Excel
+#         excel_claves = set(
+#             (str(row["nit_cliente"]), str(row["nro_docto_cruce"]))
+#             for _, row in df.iterrows()
+#             if row.get("nit_cliente") and row.get("nro_docto_cruce")
+#         )
+
+#         # Claves en BD
+#         bd_clientes = db.query(models.Cliente).all()
+#         bd_claves = set((c.nit_cliente, c.nro_docto_cruce) for c in bd_clientes)
+
+#         # Eliminar clientes que no están en Excel
+#         claves_a_eliminar = bd_claves - excel_claves
+#         if claves_a_eliminar:
+#             db.query(models.Cliente).filter(
+#                 tuple_(
+#                     models.Cliente.nit_cliente,
+#                     models.Cliente.nro_docto_cruce
+#                 ).in_(claves_a_eliminar)
+#             ).delete(synchronize_session=False)
+
+#         # Insertar o actualizar
+#         for _, row in df.iterrows():
+#             nit = str(row.get("nit_cliente")).strip() if row.get("nit_cliente") else None
+#             docto = str(row.get("nro_docto_cruce")).strip() if row.get("nro_docto_cruce") else None
+#             if not nit or not docto:
+#                 continue
+
+#             valor_docto = to_float(row.get("valor_docto")) or 0.0
+#             total_excel = to_float(row.get("total_cop")) if row.get("total_cop") is not None else valor_docto
+
+#             cliente = db.query(models.Cliente).filter_by(
+#                 nit_cliente=nit,
+#                 nro_docto_cruce=docto
+#             ).first()
+
+#             if cliente:
+#                 # Actualizar existente
+#                 cliente.razon_social = row.get("razon_social")
+#                 cliente.dias_vencidos = row.get("dias_vencidos")
+#                 cliente.fecha_docto = row.get("fecha_docto")
+#                 cliente.fecha_vcto = row.get("fecha_vcto")
+#                 cliente.valor_docto = valor_docto
+#                 cliente.total_cop = total_excel
+#                 cliente.telefono = str(row.get("telefono")) if row.get("telefono") else None
+#                 cliente.celular = str(row.get("celular")) if row.get("celular") else None
+#                 cliente.asesor = row.get("asesor")
+#             else:
+#                 # Insertar nuevo
+#                 nuevo = models.Cliente(
+#                     razon_social=row.get("razon_social"),
+#                     nit_cliente=nit,
+#                     nro_docto_cruce=docto,
+#                     dias_vencidos=row.get("dias_vencidos"),
+#                     fecha_docto=row.get("fecha_docto"),
+#                     fecha_vcto=row.get("fecha_vcto"),
+#                     valor_docto=valor_docto,
+#                     total_cop=total_excel,
+#                     telefono=str(row.get("telefono")) if row.get("telefono") else None,
+#                     celular=str(row.get("celular")) if row.get("celular") else None,
+#                     asesor=row.get("asesor"),
+#                 )
+#                 db.add(nuevo)
+
+#         db.commit()
+#         return RedirectResponse(url="/", status_code=303)
+
+#     except Exception as e:
+#         print("❌ Error importar_excel:", e)
+#         return RedirectResponse(url="/", status_code=303)
+
+
+# # ------------------- Observaciones -------------------
+# @app.post("/cliente/{cliente_id}/observacion")
+# def agregar_observacion(cliente_id: int, texto: str = Form(...), db: Session = Depends(get_db)):
+#     crud.add_observacion(db, cliente_id, texto)
+#     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=303)
+
+
+# # ------------------- Actualizar cliente (abonos manuales) ---
+# @app.post("/cliente/{cliente_id}/update")
+# async def update_cliente(
+#     request: Request,
+#     cliente_id: int,
+#     db: Session = Depends(get_db)
+# ):
+#     form_data = await request.form()
+#     # usamos to_float para tolerar formatos
+#     valor_abono = to_float(form_data.get("valor_abono")) or 0.0
+
+#     if valor_abono > 0:
+#         # Crear abono (usa tu función crud para mantener historial)
+#         crud.create_abono(db=db, cliente_id=cliente_id, valor=valor_abono)
+
+#         # recalcular y actualizar total_cop
+#         cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+#         if cliente:
+#             current_recaudo = sum_recaudo_db(db, cliente_id)
+#             cliente.total_cop = (cliente.valor_docto or 0.0) - current_recaudo
+#             db.commit()
+
+#     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# @app.get("/cliente/{cliente_id}")
+# def ver_cliente(cliente_id: int, db: Session = Depends(get_db)):
+#     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+#     if not cliente:
+#         raise HTTPException(status_code=404, detail="Cliente no encontrado")
+#     return templates.TemplateResponse("cliente.html", {"request": Request, "cliente": cliente})
+
+
+# # ------------------- Index -------------------
+# @app.get("/")
+# def index(request: Request,
+#           db: Session = Depends(get_db),
+#           view: str = Query("flat"),
+#           sort: str = Query("dias_desc"),
+#           min_dias: Optional[str] = Query(None),
+#           max_dias: Optional[str] = Query(None)):
+
+#     # Convertir a int si no está vacío
+#     min_dias = int(min_dias) if min_dias and min_dias.isdigit() else None
+#     max_dias = int(max_dias) if max_dias and max_dias.isdigit() else None
+
+#     cliente = db.query(models.Cliente).all()
+#     filas = []
+#     clientes_group = []
+
+#     for c in cliente :
+#         fila = {
+#             "id": c.id,
+#             "razon_social": c.razon_social,
+#             "nit_cliente": c.nit_cliente,
+#             "nro_docto_cruce": c.nro_docto_cruce,
+#             "dias_vencidos": c.dias_vencidos,
+#             "fecha_docto": c.fecha_docto,
+#             "fecha_vcto": c.fecha_vcto,
+#             "valor_docto": c.valor_docto,
+#             "total_cop": c.total_cop,
+#             "recaudo": c.recaudo,
+#             "asesor": c.asesor
+#         }
+#         filas.append(fila)
+
+#         clientes_group.append({
+#             "razon_social": c.razon_social,
+#             "nit_cliente": c.nit_cliente,
+#             "max_dias": c.dias_vencidos,
+#             "facturas": [fila]
+#         })
+
+#     return templates.TemplateResponse(
+#         "index.html",
+#         {
+#             "request": request,
+#             "filas": filas,
+#             "clientes": clientes_group,
+#             "view": view,
+#             "sort": sort,
+#             "min_dias": min_dias,
+#             "max_dias": max_dias
+#         }
+#     )
+
+
+
+
+
+# import io
+# import re
+# from typing import Optional
+# from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Query, status
+# from fastapi.responses import RedirectResponse
+# from fastapi.templating import Jinja2Templates
+# from sqlalchemy import tuple_
+# from fastapi.staticfiles import StaticFiles
+# import crud, database, models
+# from sqlalchemy.orm import Session
+# from database import SessionLocal, engine, Base
+# from decimal import Decimal
+# from io import BytesIO                      
+# import pandas as pd
+# import unicodedata
+
+
+# # ------------------- Inicialización -------------------
+# Base.metadata.create_all(bind=engine)
+
+# app = FastAPI()
+# templates = Jinja2Templates(directory="templates")
+
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+# app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+# # ------------------- Helpers -------------------
+
+# def fmt_money(value):
+#     """Filtro para mostrar números como moneda"""
+#     if value is None or value == "":
+#         return "-"
+#     try:
+#         v = Decimal(str(value))
+#         return f"{v:,.2f}"
+#     except Exception:
+#         return str(value)
+
+# templates.env.filters["fmt_money"] = fmt_money
+
+
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+
+
+# def to_float(val):
+#     try:
+#         if pd.isna(val):
+#             return None
+#         # Convertir a string y limpiar caracteres que no sean números, punto o coma
+#         val_str = str(val).replace(",", ".")  
+#         val_str = re.sub(r"[^0-9.]", "", val_str)
+#         return float(val_str) if val_str else None
+#     except (ValueError, TypeError):
+#         return None
+
+
+# # ------------------- Importar cartera -------------------
+# @app.post("/importar_excel")
+# async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+#     try:
+#         contents = await file.read()
+#         df = pd.read_excel(BytesIO(contents))
+
+#         # Renombrar columnas
+#         rename_map = {
+#             "Razón social": "razon_social",
+#             "Nit cliente despacho": "nit_cliente",
+#             "Nro. docto. cruce": "nro_docto_cruce",
+#             "Fecha docto.": "fecha_docto",
+#             "Dias vencidos": "dias_vencidos",
+#             "Total COP": "total_cop",
+#             "Valor docto": "valor_docto",
+#             "Fecha vcto.": "fecha_vcto",
+#             "Razón social vend. cliente": "razon_social_vend_cliente",
+#             "Celular": "celular",
+#             "Teléfono": "telefono"
+#         }
+#         df.rename(columns=rename_map, inplace=True)
+
+#         if df.empty:
+#             return RedirectResponse(url="/", status_code=303)
+
+#         # --- Crear set con claves del Excel ---
+#         excel_claves = set()
+#         for _, row in df.iterrows():
+#             nit = row.get("nit_cliente")
+#             docto = row.get("nro_docto_cruce")
+#             if nit and docto:
+#                 excel_claves.add((str(nit), str(docto)))
+
+#         # --- Crear set con claves de la BD ---
+#         bd_clientes = db.query(models.Cliente).all()
+#         bd_claves = set((c.nit_cliente, c.nro_docto_cruce) for c in bd_clientes)
+
+#         # --- Eliminar registros que no estén en Excel ---
+#         claves_a_eliminar = bd_claves - excel_claves
+#         if claves_a_eliminar:
+#             db.query(models.Cliente).filter(
+#                 tuple_(
+#                     models.Cliente.nit_cliente,
+#                     models.Cliente.nro_docto_cruce
+#                 ).in_(claves_a_eliminar)
+#             ).delete(synchronize_session=False)
+
+#         # --- Insertar o actualizar ---
+#         for _, row in df.iterrows():
+#             nit = str(row.get("nit_cliente"))
+#             docto = str(row.get("nro_docto_cruce"))
+#             telefono_val = row.get("telefono")
+#             celular_val = row.get("celular")
+
+#             if not nit or not docto:
+#                 continue
+
+#             cliente = db.query(models.Cliente).filter_by(
+#                 nit_cliente=nit,
+#                 nro_docto_cruce=docto
+#             ).first()
+
+#             if cliente:  # actualizar
+#                 cliente.razon_social = row.get("razon_social")
+#                 cliente.dias_vencidos = row.get("dias_vencidos")
+#                 cliente.fecha_docto = row.get("fecha_docto")
+#                 cliente.fecha_vcto = row.get("fecha_vcto")
+#                 cliente.valor_docto = to_float(row.get("valor_docto"))
+#                 cliente.total_cop = to_float(row.get("total_cop"))
+#                 cliente.telefono = str(telefono_val) if telefono_val is not None else None
+#                 cliente.celular = str(celular_val) if celular_val is not None else None
+#                 cliente.asesor = row.get("asesor")
+#             else:  # insertar nuevo
+#                 nuevo = models.Cliente(
+#                     razon_social=row.get("razon_social"),
+#                     nit_cliente=nit,
+#                     nro_docto_cruce=docto,
+#                     dias_vencidos=row.get("dias_vencidos"),
+#                     fecha_docto=row.get("fecha_docto"),
+#                     fecha_vcto=row.get("fecha_vcto"),
+#                     valor_docto=to_float(row.get("valor_docto")),
+#                     total_cop=to_float(row.get("total_cop")),
+#                     telefono=str(row.get("telefono")) if row.get("telefono") is not None else None,
+#                     celular=str(row.get("celular")) if row.get("celular") is not None else None,
+#                     asesor=row.get("asesor"),
+#                 )
+#                 db.add(nuevo)
+
+#         db.commit()
+#         return RedirectResponse(url="/", status_code=303)
+
+#     except Exception as e:
+#         print("❌ Error importar_excel:", e)
+#         return RedirectResponse(url="/", status_code=303)
+
+
+
+# # ------------------- Observaciones -------------------
+# @app.post("/cliente/{cliente_id}/observacion")
+# def agregar_observacion(cliente_id: int, texto: str = Form(...), db: Session = Depends(get_db)):
+#     crud.add_observacion(db, cliente_id, texto)
+#     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=303)
+
+
+# # ------------------- Actualizar cliente (abonos) -------------------
+# @app.post("/cliente/{cliente_id}/update")
+# async def update_cliente(
+#     request: Request,
+#     cliente_id: int,
+#     db: Session = Depends(database.get_db)
+# ):
+#     form_data = await request.form()
+#     valor_abono = float(form_data.get("valor_abono", 0.0))
+
+#     if valor_abono > 0:
+#         crud.create_abono(db=db, cliente_id=cliente_id, valor=valor_abono)
+
+#     return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+# # ------------------- Index -------------------
+# @app.get("/")
+# def index(request: Request,
+#           view: str = Query("flat"),
+#           min_dias: Optional[str] = Query(None),
+#           max_dias: Optional[str] = Query(None),
+#           sort: str = Query("dias_desc"),
+#           db: Session = Depends(get_db)):
+
+#     min_dias_val = int(min_dias) if min_dias and min_dias.strip() != "" else None
+#     max_dias_val = int(max_dias) if max_dias and max_dias.strip() != "" else None
+
+#     filas = db.query(models.Cliente).all()
+
+#     if min_dias_val is not None:
+#         filas = [f for f in filas if f.dias_vencidos is not None and f.dias_vencidos >= min_dias_val]
+#     if max_dias_val is not None:
+#         filas = [f for f in filas if f.dias_vencidos is not None and f.dias_vencidos <= max_dias_val]
+
+#     if sort == "dias_desc":
+#         filas.sort(key=lambda x: x.dias_vencidos or 0, reverse=True)
+#     elif sort == "dias_asc":
+#         filas.sort(key=lambda x: x.dias_vencidos or 0)
+#     elif sort == "razon_asc":
+#         filas.sort(key=lambda x: x.razon_social or "")
+
+#     from collections import defaultdict
+#     grupos = defaultdict(list)
+#     for f in filas:
+#         grupos[f.nit_cliente].append(f)
+
+#     clientes = []
+#     for nit, facturas in grupos.items():
+#         cliente = {
+#             "nit_cliente": nit,
+#             "razon_social": facturas[0].razon_social if facturas else "Sin razón social",
+#             "max_dias": max([f.dias_vencidos or 0 for f in facturas], default=0),
+#             "facturas": [
+#                 {
+#                     "id": f.id,
+#                     "nro_docto_cruce": f.nro_docto_cruce,
+#                     "dias_vencidos": f.dias_vencidos,
+#                     "fecha_docto": f.fecha_docto,
+#                     "fecha_vcto": f.fecha_vcto,
+#                     "valor_docto": f.valor_docto,
+#                     "total_cop": f.total_cop,
+#                     "asesor": f.asesor,
+#                 }
+#                 for f in facturas
+#             ]
+#         }
+#         clientes.append(cliente)
+
+#     return templates.TemplateResponse("index.html", {
+#         "request": request,
+#         "filas": filas,
+#         "clientes": clientes,
+#         "view": view,
+#         "min_dias": min_dias_val,
+#         "max_dias": max_dias_val,
+#         "sort": sort
+#     })
 
 
 
