@@ -1,0 +1,155 @@
+ body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #fff;
+    }
+
+    /* Contenedor general */
+    .form-wrapper {
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        margin: 20px auto;
+        width: 90%;
+        position: relative;
+    }
+
+    /* Botón regresar arriba a la izquierda */
+    .top-left-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+    }
+
+    /* Botones de guardar y eliminar arriba a la derecha */
+    .top-right-buttons {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Layout del formulario */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-top: 70px; /* espacio para los botones superiores */
+        align-items: start;
+    }
+
+    /* Área de observaciones */
+    .observaciones-box {
+        grid-column: 4 / 5;   /* siempre en la 4ta columna */
+        grid-row: 1 / span 4; /* ocupa desde la fila 1 y se expande hacia abajo */
+        display: flex;
+        flex-direction: column;
+    }
+
+
+    .historial-box {
+        grid-column: 4 / 5;
+        background-color: #ebebeb;
+        border-radius: 8px;
+        min-height: 160px;   /* altura mínima */
+        max-height: 150px;   /* 👈 altura máxima fija */
+        overflow-y: auto;    /* 👈 activa la barra vertical */
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+
+    .mb-2, .mb-3 {
+        display: flex;
+        flex-direction: column;
+    }
+
+
+    label {
+        font-weight: normal;
+        margin-bottom: 4px;
+    }
+
+    input, select, textarea {
+        border: 1px solid #00a34a;
+        border-radius: 8px;
+        padding: 6px 10px;
+    }
+
+    textarea {
+        height: 100px;
+    }
+
+    .btn {
+        border-radius: 12px;
+        padding: 6px 16px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #000;
+        text-decoration: none;
+    }
+
+    .navbar-button {
+        margin-top: 10px;
+        background-color: #00a34a;
+        margin-left: 120px;
+        color: #ffffff;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background-color: #5f75ff;
+        color: white;
+        border: none;
+    }
+
+    .btn-danger {
+        background-color: #f44336;
+        color: white;
+        border: none;
+    }
+
+    .btn-success {
+        background-color: #00a34a;
+        color: white;
+        border: none;
+        margin-top: 10px;
+    }
+
+    .navigation-buttons {
+        margin-top: 20px;
+    }
+
+    .navigation-buttons .btn {
+        margin-right: 10px;
+        background-color: #00a34a;
+        color: white;
+        border: none;
+    }
+
+    @media (max-width: 1024px) {
+        .form-grid {
+            grid-template-columns: repeat(1, 1fr);
+        }
+
+        .observaciones-box {
+            grid-column: span 2;
+        }
+
+        .historial-box {
+            grid-column: span 2;
+        }
+
+        .top-left-button,
+        .top-right-buttons {
+            position: static;
+            margin-bottom: 10px;
+        }
+    }

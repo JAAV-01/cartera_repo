@@ -1,0 +1,44 @@
+.navbar {
+  background-color: #ffffff;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  color: #000;
+  padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.navbar-top {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.navbar-logo {
+  height: 100px;
+  margin-right: 25%;
+  margin-left: 15px;
+}
+
+.navbar-fecha {
+  margin-left: 17%;
+  position: sticky;
+  top: 0;
+  width: 500px;
+  padding: 14px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.navbar-fecha h1 {
+  font-size: 25px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  font-family: "Inter","Segoe UI",Roboto,sans-serif;
+  letter-spacing: 0.5px;
+}
