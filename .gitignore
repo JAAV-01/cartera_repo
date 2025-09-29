@@ -1,0 +1,33 @@
+# Entorno virtual de Python
+venv/
+.env
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos temporales de VSCode
+.vscode/
+*.code-workspace
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+
+# Archivos temporales de Excel/Office
+~$*.xlsx
+~$*.docx
+~$*.pptx
+
+# Carpeta de dependencias si usas npm (por si acaso)
+node_modules/
+
+# Archivos exportados
+*.xlsx
+*.csv
+*.bak

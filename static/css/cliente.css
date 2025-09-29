@@ -16,11 +16,19 @@
     }
 
     /* Botón regresar arriba a la izquierda */
-    .top-left-button {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-    }
+   .top-left-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background-color: #00a34a;
+    color: #ffffff;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+}
 
     /* Botones de guardar y eliminar arriba a la derecha */
     .top-right-buttons {
@@ -94,7 +102,7 @@
     .navbar-button {
         margin-top: 10px;
         background-color: #00a34a;
-        margin-left: 120px;
+        margin-left: 10px;
         color: #ffffff;
         border: none;
         padding: 6px 16px;

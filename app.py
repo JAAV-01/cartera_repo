@@ -20,7 +20,7 @@ import re
 
 
 # ------------------- Inicialización -------------------
-Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -558,7 +558,35 @@ def ver_cliente(cliente_id: int, request: Request, db: Session = Depends(get_db)
     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return templates.TemplateResponse("cliente.html", {"request": request, "cliente": cliente})
+
+    # Cliente anterior
+    prev_cliente = (
+        db.query(models.Cliente)
+        .filter(models.Cliente.id < cliente_id)
+        .order_by(models.Cliente.id.desc())
+        .first()
+    )
+    prev_id = prev_cliente.id if prev_cliente else None
+
+    # Cliente siguiente
+    next_cliente = (
+        db.query(models.Cliente)
+        .filter(models.Cliente.id > cliente_id)
+        .order_by(models.Cliente.id.asc())
+        .first()
+    )
+    next_id = next_cliente.id if next_cliente else None
+
+    return templates.TemplateResponse(
+        "cliente.html",
+        {
+            "request": request,
+            "cliente": cliente,
+            "prev_id": prev_id,
+            "next_id": next_id,
+        }
+    )
+
 
 # ------------------- Index agrupado -------------------
 @app.get("/")
