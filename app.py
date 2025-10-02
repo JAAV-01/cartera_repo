@@ -7,8 +7,8 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text  # <-- usar SQL crudo MSSQL-safe
 from datetime import datetime
-from sqlalchemy import tuple_
 from typing import Optional
 from decimal import Decimal
 from io import BytesIO
@@ -89,6 +89,45 @@ def clean_phone(val):
     # Dejar solo dígitos (quita espacios, guiones, paréntesis, etc.)
     s = re.sub(r"[^\d]", "", s)
     return s or None
+
+
+# ---------- Helpers nuevos para borrado MSSQL-safe ----------
+def _chunk(iterable, size):
+    buf = []
+    for x in iterable:
+        buf.append(x)
+        if len(buf) >= size:
+            yield buf
+            buf = []
+    if buf:
+        yield buf
+
+def delete_by_pairs_mssql(db: Session, table_name: str, key_pairs, batch_size: int = 900):
+    """
+    Elimina filas por (nit_cliente, nro_docto_cruce) usando
+    DELETE .. FROM .. JOIN (VALUES ...)  [compatible SQL Server].
+    batch_size controla cuántos pares por lote (900 -> 1800 params).
+    """
+    pairs = list(key_pairs)
+    if not pairs:
+        return
+    for batch in _chunk(pairs, batch_size):
+        values_clause = []
+        params = {}
+        for i, (nit, doc) in enumerate(batch):
+            values_clause.append(f"(:nit{i}, :doc{i})")
+            params[f"nit{i}"] = str(nit) if nit is not None else None
+            params[f"doc{i}"] = str(doc) if doc is not None else None
+
+        sql = f"""
+        DELETE c
+        FROM {table_name} AS c
+        JOIN (VALUES {", ".join(values_clause)}) AS v(nit_cliente, nro_docto_cruce)
+          ON v.nit_cliente = c.nit_cliente
+         AND v.nro_docto_cruce = c.nro_docto_cruce;
+        """
+        db.execute(text(sql), params)
+
 
 # ------------------- Exportar cartera a Excel -------------------
 @app.get("/exportar_cartera.xlsx", name="exportar_cartera_xlsx")
@@ -354,6 +393,7 @@ def exportar_cartera_xlsx(
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
+
 # ------------------- Importar cartera -------------------
 @app.post("/importar_excel")
 async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -384,32 +424,27 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
         }
         df.rename(columns=rename_map, inplace=True)
         for col in ("telefono", "celular"):
-         if col in df.columns:
-             df[col] = df[col].apply(clean_phone)
+            if col in df.columns:
+                df[col] = df[col].apply(clean_phone)
 
         if df.empty:
-            return RedirectResponse(url="/", status_code=303)
+            return RedirectResponse(url="/?msg=Archivo%20vac%C3%ADo%20o%20sin%20filas%20v%C3%A1lidas&msg_type=info", status_code=303)
 
         # Claves en Excel
         excel_claves = set(
-            (str(row["nit_cliente"]), str(row["nro_docto_cruce"]))
+            (str(row["nit_cliente"]).strip(), str(row["nro_docto_cruce"]).strip())
             for _, row in df.iterrows()
             if row.get("nit_cliente") and row.get("nro_docto_cruce")
         )
 
         # Claves en BD
         bd_clientes = db.query(models.Cliente).all()
-        bd_claves = set((c.nit_cliente, c.nro_docto_cruce) for c in bd_clientes)
+        bd_claves = set((str(c.nit_cliente), str(c.nro_docto_cruce)) for c in bd_clientes)
 
-        # Eliminar clientes que no están en Excel
+        # Eliminar clientes que no están en Excel — MSSQL SAFE (sin abrir begin extra)
         claves_a_eliminar = bd_claves - excel_claves
         if claves_a_eliminar:
-            db.query(models.Cliente).filter(
-                tuple_(
-                    models.Cliente.nit_cliente,
-                    models.Cliente.nro_docto_cruce
-                ).in_(claves_a_eliminar)
-            ).delete(synchronize_session=False)
+            delete_by_pairs_mssql(db, "cartera", claves_a_eliminar, batch_size=900)
 
         # Insertar o actualizar
         for _, row in df.iterrows():
@@ -421,7 +456,7 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
             valor_docto = to_float(row.get("valor_docto")) or 0.0
             total_excel = to_float(row.get("total_cop")) if row.get("total_cop") is not None else valor_docto
 
-            # >>> NUEVO: calcular recaudo y normalizar a 2 decimales (no negativo)
+            # calcular recaudo y normalizar a 2 decimales (no negativo)
             recaudo_calc = round(max((valor_docto or 0.0) - (total_excel or 0.0), 0.0), 2)
 
             cliente = db.query(models.Cliente).filter_by(
@@ -437,7 +472,7 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                 cliente.fecha_vcto = row.get("fecha_vcto")
                 cliente.valor_docto = valor_docto
                 cliente.total_cop = total_excel
-                cliente.recaudo = recaudo_calc  # <<< persistir recaudo
+                cliente.recaudo = recaudo_calc
                 cliente.telefono = clean_phone(row.get("telefono"))
                 cliente.celular  = clean_phone(row.get("celular"))
                 cliente.asesor = row.get("asesor")
@@ -452,7 +487,7 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                     fecha_vcto=row.get("fecha_vcto"),
                     valor_docto=valor_docto,
                     total_cop=total_excel,
-                    recaudo=recaudo_calc,  # <<< persistir recaudo
+                    recaudo=recaudo_calc,
                     telefono=clean_phone(row.get("telefono")),
                     celular=clean_phone(row.get("celular")),
                     asesor=row.get("asesor"),
@@ -460,18 +495,21 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                 db.add(nuevo)
 
         db.commit()
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/?msg=Archivo%20subido%20correctamente&msg_type=success", status_code=303)
 
     except Exception as e:
         print("❌ Error importar_excel:", e)
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/?msg=Error%20al%20subir%20el%20archivo&msg_type=error", status_code=303)
 
 
 # ------------------- Observaciones -------------------
 @app.post("/cliente/{cliente_id}/observacion")
 def agregar_observacion(cliente_id: int, texto: str = Form(...), db: Session = Depends(get_db)):
     crud.add_observacion(db, cliente_id, texto)
-    return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/cliente/{cliente_id}?msg=Observaci%C3%B3n%20guardada&msg_type=success",
+        status_code=303
+    )
 
 # ------------------- Actualizar cliente (editar recaudo) -------------------
 @app.post("/cliente/{cliente_id}/update")
@@ -485,7 +523,7 @@ async def update_cliente(
     # Buscar cliente
     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
     if not cliente:
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/?msg=Cliente%20no%20encontrado&msg_type=error", status_code=status.HTTP_303_SEE_OTHER)
 
     # ---- Campos texto: actualizar solo si llegan con valor (no sobrescribir con vacío) ----
     for campo in ["telefono", "celular", "fecha_gestion", "tipo", "asesor"]:
@@ -532,7 +570,10 @@ async def update_cliente(
         db.add(obs)
 
     db.commit()
-    return RedirectResponse(url=f"/cliente/{cliente_id}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        url=f"/cliente/{cliente_id}?msg=Cambios%20guardados&msg_type=success",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 # ------------------- historial cliente -------------------
 @app.get("/cliente/{cliente_id}/historial")
@@ -584,6 +625,9 @@ def ver_cliente(cliente_id: int, request: Request, db: Session = Depends(get_db)
             "cliente": cliente,
             "prev_id": prev_id,
             "next_id": next_id,
+            # flash
+            "flash_msg": request.query_params.get("msg"),
+            "flash_type": request.query_params.get("msg_type"),
         }
     )
 
@@ -626,6 +670,15 @@ def index(
 
     clientes = query.all()
 
+    # ---- Flash messages desde query y automáticos por filtros ----
+    flash_msg = request.query_params.get("msg")
+    flash_type = request.query_params.get("msg_type")
+    if (min_val is not None) or (max_val is not None):
+        if not flash_msg:
+            flash_msg = "Filtros aplicados"
+        if not flash_type:
+            flash_type = "info"
+
     # ====================================
     # VISTA PLANA
     # ====================================
@@ -652,7 +705,14 @@ def index(
 
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "view": "flat", "filas": filas}
+            {
+                "request": request,
+                "view": "flat",
+                "filas": filas,
+                # flash
+                "flash_msg": flash_msg,
+                "flash_type": flash_type,
+            }
         )
 
     # ====================================
@@ -696,9 +756,14 @@ def index(
 
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "clientes": list(agrupados.values())}
+        {
+            "request": request,
+            "clientes": list(agrupados.values()),
+            # flash
+            "flash_msg": flash_msg,
+            "flash_type": flash_type,
+        }
     )
-
 
 
 

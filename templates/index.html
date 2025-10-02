@@ -149,6 +149,12 @@
                   <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}">ver</a></td>
                 </tr>
                 {% endfor %}
+                <!-- Fila de total -->
+                  <tr class="ix-total-row">
+                    <td colspan="5" class="right"><strong>Total cliente:</strong></td>
+                    <td class="right mono"><strong>$ {{ cl.facturas | sum(attribute='total_cop') | fmt_money }}</strong></td>
+                    <td colspan="3"></td>
+                  </tr>
               </tbody>
             </table>
           </div>
