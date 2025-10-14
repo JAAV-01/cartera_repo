@@ -85,7 +85,12 @@
     textarea {
         height: 100px;
     }
-
+    
+    #correo {
+        border: 1px solid #00a34a;
+        border-radius: 8px;
+        padding: 6px 10px;
+    }
     .btn {
         border-radius: 12px;
         padding: 6px 16px;
@@ -159,7 +164,7 @@
     }
 </style>
 
-<a href="/" class="navbar-button">Regresar</a>
+<a  href="{{ back_url }}" class="navbar-button">Regresar</a>
 
 <div class="form-wrapper">
     <!-- Botón Guardar arriba derecha -->
@@ -228,6 +233,11 @@
                 <label>Recaudo:</label>
                 <input type="text" name="recaudo" value="{{ '{:,.0f}'.format(cliente.recaudo|float) if cliente.recaudo else '' }}">
             </div>
+            <div  class="email">
+                <label>Correo:</label>
+                <input id="correo" type="email" name="correo" value="{{ cliente.correo or '' }}" class="form-control">
+            </div>
+
 
             <div class="mb-2">
                 <label>Tipo:</label>

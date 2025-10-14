@@ -56,7 +56,7 @@
         </div>
         <div class="ix-row">
           <button class="ix-btn" type="submit">Aplicar</button>
-          <a class="ix-btn" href="{{ request.url_for('exportar_cartera_xlsx') }}{% if request.query_params %}?{{ request.query_params }}{% endif %}">Exportar Excel</a>
+          <a href="/exportar_cartera.xlsx{% if current_qs %}?{{ current_qs|urlencode }}{% endif %}" class="btn btn-success">Exportar Excel</a>
         </div>
       </form>
     </div>
@@ -93,7 +93,8 @@
             <td class="right mono">{{ f.total_cop | fmt_money }}</td>
             <td class="right mono">{{ f.recaudo | fmt_money }}</td>
             <td>{{ f.asesor or '-' }}</td>
-            <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}">ver</a></td>
+            <!-- CORREGIDO: usar f.id -->
+            <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">ver</a></td>
           </tr>
           {% else %}
           <tr>
@@ -146,7 +147,8 @@
                   <td class="right mono">{{ f.total_cop | fmt_money }}</td>
                   <td class="right mono">{{ f.recaudo | fmt_money }}</td>
                   <td>{{ f.asesor or '-' }}</td>
-                  <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}">ver</a></td>
+                  <!-- CORREGIDO: usar f.id -->
+                  <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">ver</a></td>
                 </tr>
                 {% endfor %}
                 <!-- Fila de total -->

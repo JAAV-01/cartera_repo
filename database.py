@@ -43,3 +43,46 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# # database.py (PostgreSQL, robusto contra encoding)
+# import os
+# from sqlalchemy import create_engine
+# from sqlalchemy.engine import URL
+# from sqlalchemy.orm import sessionmaker, declarative_base
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+# DB_USER = os.getenv("DB_USER", "postgres")
+# DB_PASS = os.getenv("DB_PASS", "")
+# DB_HOST = os.getenv("DB_HOST", "localhost")
+# DB_PORT = os.getenv("DB_PORT", "5432")
+# DB_NAME = os.getenv("DB_NAME", "cartera_db")
+
+# # Construir URL sin concatenar strings (evita problemas de UTF-8 / quoting)
+# SQLALCHEMY_DATABASE_URL = URL.create(
+#     drivername="postgresql+psycopg2",
+#     username=DB_USER,      # SQLAlchemy se encarga del quoting/encoding
+#     password=DB_PASS,
+#     host=DB_HOST,
+#     port=int(DB_PORT),
+#     database=DB_NAME,
+# )
+
+# engine = create_engine(
+#     SQLALCHEMY_DATABASE_URL,
+#     pool_pre_ping=True,
+#     pool_recycle=1800,
+#     future=True,
+# )
+
+# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Base = declarative_base()
+
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()

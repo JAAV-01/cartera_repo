@@ -22,6 +22,7 @@ class Cliente(Base):
     fecha_gestion = Column(Date)
     tipo = Column(String(100))
     observaciones = relationship("Observacion", back_populates="cliente", cascade="all, delete")
+    correo = Column(String(255), nullable=True)
 
 
 class Observacion(Base):
