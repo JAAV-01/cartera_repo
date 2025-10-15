@@ -85,14 +85,63 @@ def clean_phone(val):
     return s or None
 
 def clean_email(val):
-    """Normaliza emails: recorta, minúsculas y valida forma simple."""
+    """
+    Normaliza emails:
+    - Busca el PRIMER email válido, aunque vengan varios (separados por ; , / o espacios).
+    - Tolera mayúsculas, espacios y texto ruidoso (e.g. 'EMAIL: pep@ACME.com / otro@x.com').
+    """
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
-    s = str(val).strip().lower()
-    s = re.sub(r"\s+", "", s)
-    if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", s):
-        return s
+    s = str(val).strip()
+    if not s or s.lower() == "nan":
+        return None
+
+    # Cortes rápidos por separadores comunes
+    candidates = re.split(r"[;,\n/]+", s)
+
+    email_re = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+
+    # Primero busca dentro de cada segmento
+    for part in candidates:
+        m = email_re.search(part)
+        if m:
+            return m.group(0).strip().lower()
+
+    # Si no, busca en todo el string
+    m = email_re.search(s)
+    if m:
+        return m.group(0).strip().lower()
+
     return None
+
+# ---- Null-safe parsers para MSSQL (evitan NaN/Timestamp) ----
+def to_int_nullsafe(val):
+    """Convierte a int o devuelve None si viene vacío/NaN."""
+    try:
+        if val is None:
+            return None
+        if isinstance(val, float) and math.isnan(val):  # NaN
+            return None
+        s = str(val).strip()
+        if s == "":
+            return None
+        return int(float(s))  # admite "5.0"
+    except Exception:
+        return None
+
+def to_dt_nullsafe(val):
+    """Convierte a datetime (py) o None. Acepta pandas Timestamp, str, excel serial."""
+    if val is None:
+        return None
+    try:
+        if isinstance(val, float) and math.isnan(val):
+            return None
+    except Exception:
+        pass
+    ts = pd.to_datetime(val, errors="coerce")
+    if pd.isna(ts):
+        return None
+    return ts.to_pydatetime()
 
 # ---------- Helpers para borrado en SQL Server ----------
 def _chunk(iterable, size):
@@ -388,72 +437,221 @@ def exportar_cartera_xlsx(
 async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         contents = await file.read()
-        df = pd.read_excel(
-            BytesIO(contents),
-            dtype={
-                "Nit cliente despacho": str,
-                "Nro. docto. cruce": str,
-                "Celular": str,
-                "Teléfono": str,
-                "Correo": str,
-                "Email": str,
-                "E-mail": str,
-            }
-        )
 
-        rename_map = {
-            "Razón social": "razon_social",
-            "Nit cliente despacho": "nit_cliente",
-            "Nro. docto. cruce": "nro_docto_cruce",
-            "Fecha docto.": "fecha_docto",
-            "Dias vencidos": "dias_vencidos",
-            "Valor docto": "valor_docto",
-            "Total COP": "total_cop",
-            "Fecha vcto.": "fecha_vcto",
-            "Celular": "celular",
-            "Teléfono": "telefono",
-            "Razón social vend. cliente": "asesor",
-            "Correo": "correo",
-            "Email": "correo",
-            "E-mail": "correo",
+        # --- Cargar Excel/CSV (ambos formatos) ---
+        def _read_any(contents: bytes, filename: str):
+            name = (filename or "").lower()
+            if name.endswith(".csv"):
+                df = pd.read_csv(BytesIO(contents), dtype=str, keep_default_na=False)
+                return {"__csv__": df}
+            return pd.read_excel(BytesIO(contents), sheet_name=None, dtype=str, keep_default_na=False)
+
+        sheets = _read_any(contents, file.filename)
+
+        # --- Normalizador simple de strings ---
+        def norm(s: str) -> str:
+            if s is None:
+                return ""
+            t = str(s).strip().lower()
+            rep = {"á":"a","é":"e","í":"i","ó":"o","ú":"u","ñ":"n","ä":"a","ë":"e","ï":"i","ö":"o","ü":"u","’":"'","´":"'","`":"'"}
+            for a,b in rep.items(): t = t.replace(a,b)
+            t = re.sub(r"\s+", " ", t)
+            return t
+
+        # --- Aliases (internos -> alias) ---
+        alias_map = {
+            "razon_social": {"razon social", "razon social vend. cliente", "razon social vend cliente"},
+            "nit_cliente": {"nit", "nit cliente despacho", "nit cliente"},
+            "nro_docto_cruce": {"docto cruce", "nro. docto. cruce", "nro docto cruce", "factura", "documento", "nro documento"},
+            "fecha_docto": {"fecha docto", "fecha docto."},
+            "fecha_vcto": {"fecha vcto", "fecha vcto."},
+            "dias_vencidos": {"dias vencidos", "dias vencidos."},
+            "valor_docto": {"valor docto", "valor docto."},
+            "total_cop": {"total cop", "total cop (saldo)", "saldo", "total (cop)"},
+            "telefono": {"telefono", "teléfono"},
+            "celular": {"celular", "movil", "móvil"},
+            "correo": {"correo", "email", "e-mail", "mail", "correo electronico", "correo electrónico"},
+            "asesor": {"asesor", "vendedor", "razon social vend. cliente", "razon social vend cliente"},
+            "obs_txt": {"observaciones"},
         }
-        df.rename(columns=rename_map, inplace=True)
 
-        for col in ("telefono", "celular"):
-            if col in df.columns:
-                df[col] = df[col].apply(clean_phone)
-        if "correo" in df.columns:
-            df["correo"] = df["correo"].apply(clean_email)
+        # --- Detectar si es export del proyecto (hoja 'cartera' con NIT/Docto) ---
+        is_project_export = False
+        df_project = None
+        for sheet_name, df in sheets.items():
+            if norm(sheet_name) == "cartera":
+                df_project = df
+                break
+        if df_project is not None:
+            cols_n = {norm(c) for c in df_project.columns}
+            if "nit" in cols_n and ("docto cruce" in cols_n or "nro. docto. cruce" in cols_n or "nro docto cruce" in cols_n):
+                is_project_export = True
+
+        # --- Elegir hoja candidata ---
+        if is_project_export:
+            df_raw = df_project.copy()
+        else:
+            df_raw = None
+            for _, df in sheets.items():
+                cols_n = {norm(c) for c in df.columns}
+                if any(x in cols_n for x in alias_map["nit_cliente"]) and \
+                   any(x in cols_n for x in alias_map["nro_docto_cruce"]):
+                    df_raw = df
+                    break
+            if df_raw is None:
+                return RedirectResponse(
+                    url="/?msg=No%20se%20encontro%20hoja%20compatible%20(ni%20cartera%20ni%20columnas%20clave)&msg_type=error",
+                    status_code=303
+                )
+
+        # Copia de encabezados originales por si necesitamos "rescatar" correo
+        original_cols = list(df_raw.columns)
+
+        df_raw.columns = [str(c).strip() for c in df_raw.columns]
+
+        # --- Renombrado dinámico por alias ---
+        rename_map_dynamic = {}
+        for col in df_raw.columns:
+            n = norm(col)
+            for internal, aliases in alias_map.items():
+                if n in aliases and internal not in rename_map_dynamic.values():
+                    rename_map_dynamic[col] = internal
+                    break
+
+        # Encabezados exactos del export del proyecto
+        project_head_map = {
+            "Razón social": "razon_social",
+            "NIT": "nit_cliente",
+            "Docto cruce": "nro_docto_cruce",
+            "Días vencidos": "dias_vencidos",
+            "Fecha docto": "fecha_docto",
+            "Fecha vcto": "fecha_vcto",
+            "Valor docto": "valor_docto",
+            "Total COP (saldo)": "total_cop",
+            "Teléfono": "telefono",
+            "Celular": "celular",
+            "Correo": "correo",
+            "Email": "correo",      # soporte explícito
+            "E-mail": "correo",     # soporte explícito
+            "Asesor": "asesor",
+            "Observaciones": "obs_txt",
+        }
+        for col in df_raw.columns:
+            if col in project_head_map and project_head_map[col] not in rename_map_dynamic.values():
+                rename_map_dynamic[col] = project_head_map[col]
+
+        df = df_raw.rename(columns=rename_map_dynamic)
+
+        # --- Asegurar/Coalescer columna 'correo' desde cualquier variante ---
+        def _norm2(s: str) -> str:
+            if s is None:
+                return ""
+            t = str(s).strip().lower()
+            rep = {"á":"a","é":"e","í":"i","ó":"o","ú":"u","ñ":"n"}
+            for a,b in rep.items(): t = t.replace(a,b)
+            t = re.sub(r"\s+", " ", t)
+            return t
+
+        email_cols_candidates = []
+        for col in df_raw.columns:
+            n = _norm2(col)
+            if re.fullmatch(r"(correo( electronico)?)|(e[\s-]?mail)|email|mail", n):
+                email_cols_candidates.append(col)
+
+        if "correo" not in df.columns:
+            if email_cols_candidates:
+                correo_series = None
+                for col in email_cols_candidates:
+                    s = df_raw[col].astype(str)
+                    s = s.where(~s.str.fullmatch(r"(?i)\s*nan\s*"), "")
+                    if correo_series is None:
+                        correo_series = s
+                    else:
+                        correo_series = correo_series.mask(
+                            (correo_series.astype(str).str.strip() == "") & (s.astype(str).str.strip() != ""),
+                            s
+                        )
+                df["correo"] = correo_series
+            else:
+                df["correo"] = None
+
+        # Normalizar emails al final
+        df["correo"] = df["correo"].apply(clean_email)
+
+        # Validar claves mínimas
+        if "nit_cliente" not in df.columns or "nro_docto_cruce" not in df.columns:
+            return RedirectResponse(
+                url="/?msg=El%20archivo%20no%20tiene%20las%20columnas%20clave%20(NIT%20y%20Docto%20cruce)&msg_type=error",
+                status_code=303
+            )
+
+        # --- Normalizaciones de campos ---
+        if "telefono" in df.columns: df["telefono"] = df["telefono"].apply(clean_phone)
+        if "celular" in df.columns: df["celular"] = df["celular"].apply(clean_phone)
+
+        if "fecha_docto" in df.columns: df["fecha_docto"] = df["fecha_docto"].apply(to_dt_nullsafe)
+        if "fecha_vcto"  in df.columns: df["fecha_vcto"]  = df["fecha_vcto"].apply(to_dt_nullsafe)
+        if "dias_vencidos" in df.columns: df["dias_vencidos"] = df["dias_vencidos"].apply(to_int_nullsafe)
+
+        def _to_money(x):
+            v = to_float(x)
+            return v if v is not None else 0.0
+
+        if "valor_docto" in df.columns:
+            df["valor_docto"] = df["valor_docto"].apply(_to_money)
+        else:
+            df["valor_docto"] = 0.0
+
+        if "total_cop" in df.columns:
+            df["total_cop"] = df["total_cop"].apply(_to_money)
+        else:
+            df["total_cop"] = df["valor_docto"]
+
+        # Claves limpias
+        df = df[(df["nit_cliente"].notna()) & (df["nro_docto_cruce"].notna())]
+        df["nit_cliente"] = df["nit_cliente"].astype(str).str.strip()
+        df["nro_docto_cruce"] = df["nro_docto_cruce"].astype(str).str.strip()
+        df = df[(df["nit_cliente"] != "") & (df["nro_docto_cruce"] != "")]
 
         if df.empty:
-            return RedirectResponse(url="/?msg=Archivo%20vac%C3%ADo%20o%20sin%20filas%20v%C3%A1lidas&msg_type=info", status_code=303)
+            return RedirectResponse(url="/?msg=Archivo%20vacio%20o%20sin%20filas%20validas&msg_type=info", status_code=303)
 
-        # Claves en Excel
-        excel_claves = set(
-            (str(row["nit_cliente"]).strip(), str(row["nro_docto_cruce"]).strip())
-            for _, row in df.iterrows()
-            if row.get("nit_cliente") and row.get("nro_docto_cruce")
-        )
-
-        # Claves en BD
+        # --- Claves existentes en BD ---
         bd_clientes = db.query(models.Cliente).all()
         bd_claves = set((str(c.nit_cliente), str(c.nro_docto_cruce)) for c in bd_clientes)
 
-        # Eliminar clientes que no están en Excel — MSSQL SAFE
-        claves_a_eliminar = bd_claves - excel_claves
-        if claves_a_eliminar:
-            delete_by_pairs_mssql(db, "cartera", claves_a_eliminar, batch_size=900)
+        # --- Borrado condicional ---
+        if not is_project_export:
+            excel_claves = set(zip(df["nit_cliente"], df["nro_docto_cruce"]))
+            claves_a_eliminar = bd_claves - excel_claves
+            if claves_a_eliminar:
+                delete_by_pairs_mssql(db, "cartera", claves_a_eliminar, batch_size=900)
 
-        # Insertar o actualizar
+        # Helpers de obs
+        def _clean_obs_text(s: Optional[str]) -> Optional[str]:
+            if not s:
+                return None
+            txt = str(s).strip()
+            m = re.match(r"^\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(.+)$", txt)
+            if m:
+                return m.group(2).strip() or None
+            return txt or None
+
+        def _latest_obs_text(cliente):
+            latest = None
+            for o in getattr(cliente, "observaciones", []) or []:
+                f = getattr(o, "fecha_creacion", None) or datetime.min
+                if latest is None or f > (getattr(latest, "fecha_creacion", None) or datetime.min):
+                    latest = o
+            return (latest.texto.strip() if latest and latest.texto else None)
+
+        # --- Upsert + Observaciones (solo si viene del export) ---
         for _, row in df.iterrows():
-            nit = str(row.get("nit_cliente")).strip() if row.get("nit_cliente") else None
-            docto = str(row.get("nro_docto_cruce")).strip() if row.get("nro_docto_cruce") else None
-            if not nit or not docto:
-                continue
+            nit = row["nit_cliente"]
+            docto = row["nro_docto_cruce"]
 
-            valor_docto = to_float(row.get("valor_docto")) or 0.0
-            total_excel = to_float(row.get("total_cop")) if row.get("total_cop") is not None else valor_docto
-
+            valor_docto = row.get("valor_docto", 0.0) or 0.0
+            total_excel = row.get("total_cop", valor_docto)
             recaudo_calc = round(max((valor_docto or 0.0) - (total_excel or 0.0), 0.0), 2)
 
             cliente = db.query(models.Cliente).filter_by(
@@ -461,36 +659,50 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
                 nro_docto_cruce=docto
             ).first()
 
+            correo_val = clean_email(row.get("correo")) if "correo" in row else None
+
             if cliente:
                 cliente.razon_social = row.get("razon_social")
-                cliente.dias_vencidos = row.get("dias_vencidos")
-                cliente.fecha_docto = row.get("fecha_docto")
-                cliente.fecha_vcto = row.get("fecha_vcto")
+                cliente.dias_vencidos = to_int_nullsafe(row.get("dias_vencidos"))
+                cliente.fecha_docto = to_dt_nullsafe(row.get("fecha_docto"))
+                cliente.fecha_vcto = to_dt_nullsafe(row.get("fecha_vcto"))
                 cliente.valor_docto = valor_docto
                 cliente.total_cop = total_excel
                 cliente.recaudo = recaudo_calc
                 cliente.telefono = clean_phone(row.get("telefono"))
                 cliente.celular  = clean_phone(row.get("celular"))
                 cliente.asesor = row.get("asesor")
-                if "correo" in row:
-                    cliente.correo = clean_email(row.get("correo"))
+                if correo_val and (not cliente.correo or cliente.correo != correo_val):
+                    cliente.correo = correo_val
             else:
-                nuevo = models.Cliente(
+                cliente = models.Cliente(
                     razon_social=row.get("razon_social"),
                     nit_cliente=nit,
                     nro_docto_cruce=docto,
-                    dias_vencidos=row.get("dias_vencidos"),
-                    fecha_docto=row.get("fecha_docto"),
-                    fecha_vcto=row.get("fecha_vcto"),
+                    dias_vencidos=to_int_nullsafe(row.get("dias_vencidos")),
+                    fecha_docto=to_dt_nullsafe(row.get("fecha_docto")),
+                    fecha_vcto=to_dt_nullsafe(row.get("fecha_vcto")),
                     valor_docto=valor_docto,
                     total_cop=total_excel,
                     recaudo=recaudo_calc,
                     telefono=clean_phone(row.get("telefono")),
                     celular=clean_phone(row.get("celular")),
                     asesor=row.get("asesor"),
-                    correo=clean_email(row.get("correo")) if "correo" in row else None,
+                    correo=correo_val,
                 )
-                db.add(nuevo)
+                db.add(cliente)
+                db.flush()
+
+            if "obs_txt" in df.columns and is_project_export:
+                new_obs_text = _clean_obs_text(row.get("obs_txt"))
+                if new_obs_text:
+                    last_text = _latest_obs_text(cliente)
+                    if (last_text or "").strip() != new_obs_text.strip():
+                        obs = models.Observacion(
+                            cliente_id=cliente.id,
+                            texto=new_obs_text,
+                        )
+                        db.add(obs)
 
         db.commit()
         return RedirectResponse(url="/?msg=Archivo%20subido%20correctamente&msg_type=success", status_code=303)
@@ -498,6 +710,7 @@ async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get
     except Exception as e:
         print("❌ Error importar_excel:", e)
         return RedirectResponse(url="/?msg=Error%20al%20subir%20el%20archivo&msg_type=error", status_code=303)
+
 
 # ------------------- Observaciones -------------------
 @app.post("/cliente/{cliente_id}/observacion")
@@ -752,6 +965,7 @@ def index(
             "current_qs": current_qs,  # <- usa esto en los href
         }
     )
+
 
 
 
