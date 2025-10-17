@@ -47,6 +47,7 @@
               <option value="dias_desc" {{ 'selected' if sort=='dias_desc' else '' }}>Días vencidos (desc)</option>
               <option value="dias_asc" {{ 'selected' if sort=='dias_asc' else '' }}>Días vencidos (asc)</option>
               <option value="razon_asc" {{ 'selected' if sort=='razon_asc' else '' }}>Razón social (A-Z)</option>
+              <option value="nit_asc" {{ 'selected' if sort=='nit_asc' else '' }}>NIT (A-Z)</option>
             </select>
           </div>
           <div>
@@ -56,7 +57,8 @@
         </div>
         <div class="ix-row">
           <button class="ix-btn" type="submit">Aplicar</button>
-          <a href="/exportar_cartera.xlsx{% if current_qs %}?{{ current_qs|urlencode }}{% endif %}" class="btn btn-success">Exportar Excel</a>
+          <a href="/exportar_cartera.xlsx{% if current_qs %}?{{ current_qs|urlencode }}{% endif %}"
+             class="ix-btn ix-btn-green">Exportar Excel</a>
         </div>
       </form>
     </div>
@@ -93,8 +95,12 @@
             <td class="right mono">{{ f.total_cop | fmt_money }}</td>
             <td class="right mono">{{ f.recaudo | fmt_money }}</td>
             <td>{{ f.asesor or '-' }}</td>
-            <!-- CORREGIDO: usar f.id -->
-            <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">ver</a></td>
+            <td class="right">
+              <a class="ix-link"
+                 href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">
+                 Ver
+              </a>
+            </td>
           </tr>
           {% else %}
           <tr>
@@ -147,16 +153,20 @@
                   <td class="right mono">{{ f.total_cop | fmt_money }}</td>
                   <td class="right mono">{{ f.recaudo | fmt_money }}</td>
                   <td>{{ f.asesor or '-' }}</td>
-                  <!-- CORREGIDO: usar f.id -->
-                  <td class="right"><a class="ix-link" href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">ver</a></td>
+                  <td class="right">
+                    <a class="ix-link"
+                       href="/cliente/{{ f.id }}?ref={{ current_qs|urlencode }}">
+                       Ver
+                    </a>
+                  </td>
                 </tr>
                 {% endfor %}
                 <!-- Fila de total -->
-                  <tr class="ix-total-row">
-                    <td colspan="5" class="right"><strong>Total cliente:</strong></td>
-                    <td class="right mono"><strong>$ {{ cl.facturas | sum(attribute='total_cop') | fmt_money }}</strong></td>
-                    <td colspan="3"></td>
-                  </tr>
+                <tr class="ix-total-row">
+                  <td colspan="5" class="right"><strong>Total cliente:</strong></td>
+                  <td class="right mono"><strong>{{ cl.facturas | sum(attribute='total_cop') | fmt_money }}</strong></td>
+                  <td colspan="3"></td>
+                </tr>
               </tbody>
             </table>
           </div>

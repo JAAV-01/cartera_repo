@@ -20,13 +20,27 @@
     }
 
     /* Botón regresar arriba a la izquierda */
-    .top-left-button {
-        position: absolute;
+    .navbar-button {
+        
         top: 20px;
         left: 20px;
+        background-color: #00a34a;
+        color: #ffffff;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background-color 0.2s ease;
+        z-index: 10;
     }
 
-    /* Botones de guardar y eliminar arriba a la derecha */
+    .navbar-button:hover {
+        background-color: #008b3e;
+    }
+
+    /* Botones de guardar arriba a la derecha */
     .top-right-buttons {
         position: absolute;
         top: 20px;
@@ -46,30 +60,27 @@
 
     /* Área de observaciones */
     .observaciones-box {
-        grid-column: 4 / 5;   /* siempre en la 4ta columna */
-        grid-row: 1 / span 4; /* ocupa desde la fila 1 y se expande hacia abajo */
+        grid-column: 4 / 5;
+        grid-row: 1 / span 4;
         display: flex;
         flex-direction: column;
     }
-
 
     .historial-box {
         grid-column: 4 / 5;
         background-color: #ebebeb;
         border-radius: 8px;
-        min-height: 160px;   /* altura mínima */
-        max-height: 150px;   /* 👈 altura máxima fija */
-        overflow-y: auto;    /* 👈 activa la barra vertical */
+        min-height: 160px;
+        max-height: 150px;
+        overflow-y: auto;
         padding: 10px;
         margin-top: 10px;
     }
-
 
     .mb-2, .mb-3 {
         display: flex;
         flex-direction: column;
     }
-
 
     label {
         font-weight: normal;
@@ -85,12 +96,13 @@
     textarea {
         height: 100px;
     }
-    
+
     #correo {
         border: 1px solid #00a34a;
         border-radius: 8px;
         padding: 6px 10px;
     }
+
     .btn {
         border-radius: 12px;
         padding: 6px 16px;
@@ -100,27 +112,8 @@
         text-decoration: none;
     }
 
-    .navbar-button {
-        margin-top: 10px;
-        background-color: #00a34a;
-        margin-left: 120px;
-        color: #ffffff;
-        border: none;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-weight: bold;
-        cursor: pointer;
-        text-decoration: none;
-    }
-
     .btn-primary {
         background-color: #5f75ff;
-        color: white;
-        border: none;
-    }
-
-    .btn-danger {
-        background-color: #f44336;
         color: white;
         border: none;
     }
@@ -132,12 +125,16 @@
         margin-top: 10px;
     }
 
+    /* Navegación inferior */
     .navigation-buttons {
-        margin-top: 20px;
+        margin-top: 30px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
     }
 
     .navigation-buttons .btn {
-        margin-right: 10px;
         background-color: #00a34a;
         color: white;
         border: none;
@@ -148,26 +145,25 @@
             grid-template-columns: repeat(1, 1fr);
         }
 
-        .observaciones-box {
-            grid-column: span 2;
-        }
-
+        .observaciones-box,
         .historial-box {
             grid-column: span 2;
         }
 
-        .top-left-button,
+        .navbar-button,
         .top-right-buttons {
             position: static;
             margin-bottom: 10px;
+            display: inline-block;
         }
     }
 </style>
 
-<a  href="{{ back_url }}" class="navbar-button">Regresar</a>
+<!-- Botón superior: Regresar -->
+<a href="{{ back_url }}" class="navbar-button">⟵ Regresar</a>
 
 <div class="form-wrapper">
-    <!-- Botón Guardar arriba derecha -->
+    <!-- Botón Guardar arriba a la derecha -->
     <div class="top-right-buttons">
         <button type="submit" form="clienteForm" class="btn btn-primary">Guardar datos</button>
     </div>
@@ -194,7 +190,6 @@
                 <label>Fecha docto:</label>
                 <input type="date" name="fecha_docto" value="{{ cliente.fecha_docto.strftime('%Y-%m-%d') if cliente.fecha_docto else '' }}" readonly>
             </div>
-
             <div class="mb-2">
                 <label>Días vencidos:</label>
                 <input type="number" name="dias_vencidos" value="{{ cliente.dias_vencidos }}" readonly>
@@ -205,14 +200,13 @@
                 <label>Valor docto:</label>
                 <input type="text" name="valor_docto" value="{{ '{:,}'.format(cliente.valor_docto|int) if cliente.valor_docto else '' }}" readonly>
             </div>
-
             <div class="mb-2">
                 <label>Teléfono:</label>
-                <input type="text" name="telefono" placeholder="Ingrese telefono" value="{{ cliente.telefono }}">
+                <input type="text" name="telefono" placeholder="Ingrese teléfono" value="{{ cliente.telefono }}">
             </div>
             <div class="mb-2">
                 <label>Fecha vcto:</label>
-                <input type="date" name="fecha_vcto" value="{{ cliente.fecha_vcto }}" readonly>
+                <input type="date" name="fecha_vcto" value="{{ cliente.fecha_vcto.strftime('%Y-%m-%d') if cliente.fecha_vcto else '' }}" readonly>
             </div>
             <div class="mb-2">
                 <label>Total COP:</label>
@@ -233,12 +227,10 @@
                 <label>Recaudo:</label>
                 <input type="text" name="recaudo" value="{{ '{:,.0f}'.format(cliente.recaudo|float) if cliente.recaudo else '' }}">
             </div>
-            <div  class="email">
+            <div class="email">
                 <label>Correo:</label>
                 <input id="correo" type="email" name="correo" value="{{ cliente.correo or '' }}" class="form-control">
             </div>
-
-
             <div class="mb-2">
                 <label>Tipo:</label>
                 <select name="tipo">
@@ -253,12 +245,12 @@
                     <option value="Contacto por whatsapp" {% if cliente.tipo == "Contacto por whatsapp" %}selected{% endif %}>Contacto por whatsapp</option>
                 </select>
             </div>
-
             <div class="mb-2">
                 <label>Asesor:</label>
                 <input type="text" name="asesor" placeholder="Ingrese nombre de asesor" value="{{ cliente.asesor }}">
             </div>
 
+            <!-- Observaciones -->
             <div class="mb-3 observaciones-box">
                 <label>Nueva observación:</label>
                 <textarea name="observaciones" placeholder="Escribe una nueva observación aquí..."></textarea>
@@ -267,20 +259,22 @@
                     <p><em>Haz clic en "ver historial" para cargar datos...</em></p>
                 </div>
             </div>
-        </div> <!-- Fin form-grid -->
+        </div>
     </form>
 
-    <!-- Navegación entre clientes (ABAJO) -->
-    <div class="navigation-buttons bottom-nav">
-        {% if prev_id %}
-            <a href="/cliente/{{ prev_id }}" class="btn">Regresar</a>
-        {% endif %}
-        {% if next_id %}
-            <a href="/cliente/{{ next_id }}" class="btn">Siguiente</a>
-        {% endif %}
-    </div>
+    <!-- Navegación inferior -->
+<div class="navigation-buttons bottom-nav">
+    {% set ref_qs = request.query_params.get('ref') %}
+    
+    {% if prev_id %}
+        <a href="/cliente/{{ prev_id }}{% if ref_qs %}?ref={{ ref_qs|urlencode }}{% endif %}" class="btn">⟵ Anterior</a>
+    {% endif %}
+    
+    {% if next_id %}
+        <a href="/cliente/{{ next_id }}{% if ref_qs %}?ref={{ ref_qs|urlencode }}{% endif %}" class="btn">Siguiente ⟶</a>
+    {% endif %}
+</div>
 
-</div> <!-- Fin form-wrapper -->
 
 <!-- Script de historial -->
 <script>
@@ -314,4 +308,5 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 });
 </script>
+
 {% endblock %}
