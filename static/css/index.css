@@ -35,7 +35,7 @@
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 12px;
-  overflow-x: auto;           /* permite scroll horizontal si la tabla se desborda */
+  overflow-x: auto;
 }
 
 /* Labels */
@@ -46,7 +46,7 @@
   margin-bottom: 4px;
 }
 
-/* Inputs */
+/* Inputs base */
 .page-index input[type="file"],
 .page-index input[type="number"],
 .page-index select {
@@ -59,6 +59,40 @@
 }
 
 .page-index input[type="file"] { width: 400px; }
+
+/* === Buscador de cliente en filtros === */
+.page-index .ix-grid-search {
+  grid-column: 1 / -1;      /* ocupa todo el ancho de la .ix-grid */
+}
+
+.page-index .ix-grid-search label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+
+.page-index .ix-grid-search input[type="text"] {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: var(--fg);
+}
+
+.page-index .ix-grid-search input[type="text"]:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+/* Fila vacía de la tabla (texto "Sin registros") */
+.ix-empty-row {
+  display: table-row;
+}
 
 /* Botones propios (evitamos .btn de Bootstrap) */
 .page-index .ix-btn {
@@ -76,14 +110,13 @@
 .page-index .ix-btn:hover { background: #008a3f; }
 .page-index .ix-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Variante para Importar si quieres diferenciar */
 .page-index .ix-btn-green { background: #00a34a; }
 
 /* Fila de acciones */
-.page-index .ix-row { 
-  margin-top: 12px; 
-  display: flex; 
-  gap: 10px; 
+.page-index .ix-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -91,7 +124,7 @@
 .page-index .ix-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 960px;           /* evita que columnas colapsen en pantallas medianas */
+  min-width: 960px;
 }
 
 .page-index .ix-table th,
@@ -106,7 +139,7 @@
 .page-index .ix-table thead th {
   color: var(--muted);
   text-align: left;
-  position: sticky;           /* encabezado fijo mientras haces scroll */
+  position: sticky;
   top: 0;
   z-index: 1;
   background: #ffffff;
@@ -178,12 +211,15 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+
 /* Fila de total en tablas */
 .ix-total-row {
   background: #f5f5f5;
   font-weight: bold;
 }
-
+.ix-grid-search {
+  background-color: #008a3f;
+}
 
 /* Responsivo */
 @media (max-width: 1024px) {

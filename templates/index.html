@@ -2,6 +2,49 @@
 
 {% block extra_css %}
 <link href="/static/css/index.css" rel="stylesheet">
+
+<style>
+/* === Buscador cliente (estilos definitivos) === */
+
+.page-index .ix-grid-search {
+  grid-column: 1 / -1;              /* ocupa TODO el ancho del grid */
+  margin-top: 6px;
+}
+
+.page-index .ix-grid-search label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+
+/* Input del buscador */
+.page-index .ix-grid-search input[type="text"] {
+  width: 50%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  font-size: 0.95rem;
+  color: var(--fg);
+  box-sizing: border-box;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+/* Focus elegante */
+.page-index .ix-grid-search input[type="text"]:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+/* Para pantallas pequeñas */
+@media (max-width: 768px) {
+  .page-index .ix-grid-search {
+    grid-column: 1 / -1;  /* sigue ocupando todo */
+  }
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -55,6 +98,19 @@
             <input id="max_dias" name="max_dias" type="number" min="0" value="{{ max_dias or '' }}">
           </div>
         </div>
+
+        <!-- Buscador por nombre -->
+        <div class="ix-grid-search">
+          <div class="ix-search-cell">
+            <label for="q">Buscar cliente</label>
+            <input type="text"
+                   id="q"
+                   name="q"
+                   value="{{ q or '' }}"
+                   placeholder="Escribe el nombre o parte del nombre del cliente">
+          </div>
+        </div>
+
         <div class="ix-row">
           <button class="ix-btn" type="submit">Aplicar</button>
           <a href="/exportar_cartera.xlsx{% if current_qs %}?{{ current_qs|urlencode }}{% endif %}"
@@ -103,7 +159,7 @@
             </td>
           </tr>
           {% else %}
-          <tr>
+          <tr class="ix-empty-row">
             <td colspan="11" class="muted">Sin registros.</td>
           </tr>
           {% endfor %}
@@ -164,7 +220,9 @@
                 <!-- Fila de total -->
                 <tr class="ix-total-row">
                   <td colspan="5" class="right"><strong>Total cliente:</strong></td>
-                  <td class="right mono"><strong>{{ cl.facturas | sum(attribute='total_cop') | fmt_money }}</strong></td>
+                  <td class="right mono">
+                    <strong>{{ cl.facturas | sum(attribute='total_cop') | fmt_money }}</strong>
+                  </td>
                   <td colspan="3"></td>
                 </tr>
               </tbody>
